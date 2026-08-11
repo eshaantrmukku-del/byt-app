@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Delete account — BYT</title>
+    <meta
+      name="description"
+      content="Request deletion of your BYT account and associated data."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0c0f14;
+        --text: #eef2f7;
+        --muted: #94a3b8;
+        --line: rgba(148, 163, 184, 0.18);
+        --accent: #3b82f6;
+        --danger: #ef4444;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: Manrope, system-ui, sans-serif;
+        background:
+          radial-gradient(900px 480px at 10% -10%, rgba(59, 130, 246, 0.14), transparent 55%),
+          linear-gradient(180deg, #0a0d12 0%, var(--bg) 50%, #0b1018 100%);
+        line-height: 1.65;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      .shell {
+        width: min(100% - 2.5rem, 36rem);
+        margin: 0 auto;
+        padding: 2.75rem 0 4rem;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin-bottom: 2.25rem;
+        color: inherit;
+        text-decoration: none;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+
+      h1 {
+        margin: 0 0 0.75rem;
+        font-family: 'Source Serif 4', Georgia, serif;
+        font-size: clamp(2rem, 5vw, 2.5rem);
+        font-weight: 600;
+        letter-spacing: -0.03em;
+      }
+
+      p {
+        color: #d5dee8;
+        margin: 0 0 1rem;
+      }
+
+      .muted {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .steps {
+        margin: 1.5rem 0 2rem;
+        padding: 1.15rem 1.25rem;
+        border: 1px solid var(--line);
+        border-radius: 1rem;
+        background: rgba(18, 23, 31, 0.65);
+      }
+
+      .steps ol {
+        margin: 0.5rem 0 0;
+        padding-left: 1.2rem;
+        color: #d5dee8;
+      }
+
+      .steps li {
+        margin: 0.45rem 0;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.9rem 1.25rem;
+        border-radius: 0.75rem;
+        background: var(--danger);
+        color: #fff;
+        font-weight: 700;
+        text-decoration: none;
+        border: none;
+      }
+
+      .btn:hover {
+        filter: brightness(1.06);
+      }
+
+      .secondary {
+        display: inline-block;
+        margin-top: 1.25rem;
+        font-size: 0.92rem;
+      }
+
+      footer {
+        margin-top: 2.5rem;
+        padding-top: 1.15rem;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <a class="brand" href="../">BYT</a>
+
+      <h1>Delete your account</h1>
+      <p>
+        You can request that we delete your BYT account and the data linked to it (goals, chats,
+        check-ins, and related profile information stored in our systems).
+      </p>
+
+      <div class="steps">
+        <strong>How to request deletion</strong>
+        <ol>
+          <li>Tap the button below to email us from the address on your BYT account.</li>
+          <li>Keep the subject line as shown (or write “Delete my BYT account”).</li>
+          <li>We’ll verify it’s you and delete your account and associated data.</li>
+        </ol>
+      </div>
+
+      <a
+        class="btn"
+        href="mailto:eshaantr.mukku@gmail.com?subject=Delete%20my%20BYT%20account%20and%20data&body=Please%20delete%20my%20BYT%20account%20and%20all%20associated%20data.%0A%0AAccount%20email%3A%20"
+      >
+        Request account deletion
+      </a>
+
+      <p class="muted" style="margin-top: 1.25rem">
+        Or email
+        <a href="mailto:eshaantr.mukku@gmail.com">eshaantr.mukku@gmail.com</a>
+        with the subject “Delete my BYT account and data”.
+      </p>
+      <!-- contact: eshaantr.mukku@gmail.com -->
+
+      <a class="secondary" href="./">Back to Privacy Policy</a>
+
+      <footer>© 2026 BYT — Build Your Tomorrow</footer>
+    </div>
+  </body>
+</html>

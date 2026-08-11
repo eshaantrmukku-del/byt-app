@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BYT — Build Your Tomorrow</title>
+    <meta
+      name="description"
+      content="BYT is your personal AI coach for goals, daily check-ins, and reflection. Build Your Tomorrow — one step at a time."
+    />
+    <meta name="theme-color" content="#F5F7FB" />
+    <link rel="icon" href="assets/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/icon-512.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --bg-elevated: #ffffff;
+        --bg-subtle: #eef2f7;
+        --phone-screen: #141c2b;
+        --text: #0f172a;
+        --text-secondary: #475569;
+        --text-muted: #64748b;
+        --accent: #3b82f6;
+        --accent-soft: rgba(59, 130, 246, 0.1);
+        --cyan: #0891b2;
+        --line: rgba(15, 23, 42, 0.08);
+        --shadow: rgba(15, 23, 42, 0.08);
+        --nav-h: 3.25rem;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      img {
+        display: block;
+        max-width: 100%;
+      }
+
+      /* ── Nav ── */
+      .nav {
+        position: fixed;
+        inset: 0 0 auto;
+        z-index: 100;
+        height: var(--nav-h);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(245, 247, 251, 0.82);
+        backdrop-filter: saturate(180%) blur(20px);
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .nav-inner {
+        width: min(100% - 2rem, 68rem);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: -0.02em;
+      }
+
+      .nav-logo {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 0.45rem;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 1.75rem;
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+      }
+
+      .nav-links a:hover {
+        color: var(--text);
+      }
+
+      .nav-cta {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .nav-cta:hover {
+        color: #2563eb;
+      }
+
+      @media (max-width: 640px) {
+        .nav-links {
+          display: none;
+        }
+      }
+
+      /* ── Hero ── */
+      .hero {
+        position: relative;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: calc(var(--nav-h) + 3rem) 1.5rem 5rem;
+        overflow: hidden;
+      }
+
+      .hero-bg {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 80% 60% at 50% -10%, rgba(59, 130, 246, 0.12), transparent 60%),
+          radial-gradient(ellipse 50% 40% at 80% 60%, rgba(34, 211, 238, 0.06), transparent 55%),
+          linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+        z-index: 0;
+      }
+
+      .hero-bg img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.35;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, transparent 85%);
+        -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, transparent 85%);
+      }
+
+      .hero-content {
+        position: relative;
+        z-index: 1;
+        max-width: 52rem;
+      }
+
+      .hero-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.85rem;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #2563eb;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-bottom: 1.5rem;
+      }
+
+      .hero h1 {
+        margin: 0 0 1rem;
+        font-size: clamp(2.75rem, 8vw, 5.5rem);
+        font-weight: 800;
+        letter-spacing: -0.045em;
+        line-height: 1.02;
+      }
+
+      .hero h1 span {
+        background: linear-gradient(135deg, #0f172a 20%, #475569 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .hero-sub {
+        margin: 0 auto 2.25rem;
+        max-width: 34rem;
+        font-size: clamp(1.05rem, 2.5vw, 1.35rem);
+        line-height: 1.55;
+        color: var(--text-secondary);
+        font-weight: 400;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.85rem;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.85rem 1.5rem;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+      }
+
+      .btn:active {
+        transform: scale(0.97);
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 32px rgba(59, 130, 246, 0.35);
+      }
+
+      .btn-primary:hover {
+        background: #2563eb;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 12px 40px rgba(59, 130, 246, 0.45);
+      }
+
+      .btn-ghost {
+        background: rgba(15, 23, 42, 0.04);
+        border: 1px solid var(--line);
+        color: var(--text);
+      }
+
+      .btn-ghost:hover {
+        background: rgba(15, 23, 42, 0.07);
+      }
+
+      .play-badge svg {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+
+      .hero-phone {
+        position: relative;
+        z-index: 1;
+        margin-top: 3.5rem;
+        width: min(17rem, 72vw);
+      }
+
+      .phone-frame {
+        position: relative;
+        border-radius: 2.4rem;
+        padding: 0.55rem;
+        background: linear-gradient(160deg, #334155 0%, #1e293b 100%);
+        box-shadow:
+          0 0 0 1px rgba(15, 23, 42, 0.12),
+          0 40px 80px rgba(15, 23, 42, 0.18),
+          0 0 120px rgba(59, 130, 246, 0.12);
+      }
+
+      .phone-screen {
+        border-radius: 1.95rem;
+        overflow: hidden;
+        background: var(--phone-screen);
+        color: #f1f5f9;
+        aspect-ratio: 9 / 19.5;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .phone-screen .phone-status,
+      .phone-screen .phone-header h3,
+      .phone-screen .phone-tool {
+        color: #f1f5f9;
+      }
+
+      .phone-screen .phone-status,
+      .phone-screen .phone-header p,
+      .phone-screen .phone-card-label,
+      .phone-screen .phone-card-sub {
+        color: #94a3b8;
+      }
+
+      .phone-screen .phone-card-label {
+        color: #64748b;
+      }
+
+      .phone-status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.65rem 1.1rem 0.35rem;
+        font-size: 0.62rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      .phone-header {
+        padding: 0.5rem 1rem 0.75rem;
+        text-align: center;
+      }
+
+      .phone-header h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .phone-header p {
+        margin: 0.15rem 0 0;
+        font-size: 0.62rem;
+        color: var(--text-muted);
+      }
+
+      .phone-body {
+        flex: 1;
+        padding: 0 0.85rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+
+      .phone-card {
+        border-radius: 0.85rem;
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--line);
+      }
+
+      .phone-card-label {
+        font-size: 0.55rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.3rem;
+      }
+
+      .phone-card-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--accent);
+      }
+
+      .phone-card-sub {
+        font-size: 0.58rem;
+        color: var(--text-secondary);
+        margin-top: 0.15rem;
+      }
+
+      .phone-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.55rem;
+      }
+
+      .phone-tool {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.6rem 0.7rem;
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--line);
+        font-size: 0.58rem;
+        font-weight: 600;
+      }
+
+      .phone-tool-icon {
+        width: 1.4rem;
+        height: 1.4rem;
+        border-radius: 0.4rem;
+        display: grid;
+        place-items: center;
+        font-size: 0.7rem;
+      }
+
+      .phone-glow {
+        position: absolute;
+        bottom: -30%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 120%;
+        height: 60%;
+        background: radial-gradient(ellipse, rgba(59, 130, 246, 0.12), transparent 70%);
+        pointer-events: none;
+      }
+
+      /* ── Sections ── */
+      .section {
+        padding: 6rem 1.5rem;
+      }
+
+      .section-inner {
+        width: min(100%, 68rem);
+        margin: 0 auto;
+      }
+
+      .section-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 0.75rem;
+      }
+
+      .section-title {
+        margin: 0 0 1rem;
+        font-size: clamp(2rem, 5vw, 3.25rem);
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1.08;
+      }
+
+      .section-desc {
+        margin: 0;
+        max-width: 36rem;
+        font-size: 1.1rem;
+        line-height: 1.65;
+        color: var(--text-secondary);
+      }
+
+      /* Feature rows */
+      .feature {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4rem;
+        align-items: center;
+        padding: 5rem 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .feature:first-of-type {
+        border-top: none;
+        padding-top: 2rem;
+      }
+
+      .feature.reverse .feature-visual {
+        order: -1;
+      }
+
+      @media (max-width: 768px) {
+        .feature,
+        .feature.reverse {
+          grid-template-columns: 1fr;
+          gap: 2.5rem;
+        }
+
+        .feature.reverse .feature-visual {
+          order: 0;
+        }
+      }
+
+      .feature-visual {
+        display: flex;
+        justify-content: center;
+      }
+
+      .feature-card {
+        width: 100%;
+        max-width: 22rem;
+        border-radius: 1.25rem;
+        padding: 2rem;
+        background: linear-gradient(145deg, var(--bg-elevated) 0%, var(--bg-subtle) 100%);
+        border: 1px solid var(--line);
+        box-shadow: 0 24px 64px var(--shadow);
+      }
+
+      .feature-icon {
+        width: 2.75rem;
+        height: 2.75rem;
+        border-radius: 0.75rem;
+        display: grid;
+        place-items: center;
+        font-size: 1.25rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .feature-card h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1.15rem;
+        font-weight: 700;
+      }
+
+      .feature-card p {
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        color: var(--text-secondary);
+      }
+
+      .feature-bullets {
+        margin: 1.25rem 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .feature-bullets li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-bottom: 0.6rem;
+      }
+
+      .feature-bullets li::before {
+        content: '';
+        flex-shrink: 0;
+        width: 0.35rem;
+        height: 0.35rem;
+        border-radius: 50%;
+        background: var(--accent);
+        margin-top: 0.45rem;
+      }
+
+      /* Stats strip */
+      .stats {
+        padding: 4rem 1.5rem;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: var(--bg-subtle);
+      }
+
+      .stats-grid {
+        width: min(100%, 68rem);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2rem;
+        text-align: center;
+      }
+
+      @media (max-width: 640px) {
+        .stats-grid {
+          grid-template-columns: 1fr;
+          gap: 2.5rem;
+        }
+      }
+
+      .stat-value {
+        font-size: clamp(2rem, 4vw, 2.75rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: var(--text);
+      }
+
+      .stat-label {
+        margin-top: 0.35rem;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+      }
+
+      /* Download CTA */
+      .download {
+        padding: 7rem 1.5rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .download-glow {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse 70% 50% at 50% 100%, rgba(59, 130, 246, 0.18), transparent 70%);
+        pointer-events: none;
+      }
+
+      .download-inner {
+        position: relative;
+        z-index: 1;
+        max-width: 40rem;
+        margin: 0 auto;
+      }
+
+      .download h2 {
+        margin: 0 0 1rem;
+        font-size: clamp(2.25rem, 5vw, 3.5rem);
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1.08;
+      }
+
+      .download p {
+        margin: 0 auto 2rem;
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+      }
+
+      .store-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        justify-content: center;
+      }
+
+      .store-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1.35rem;
+        border-radius: 0.85rem;
+        background: var(--bg-elevated);
+        border: 1px solid var(--line);
+        transition: background 0.2s, border-color 0.2s;
+        min-width: 11rem;
+        box-shadow: 0 4px 16px var(--shadow);
+      }
+
+      .store-btn:hover {
+        background: var(--bg-subtle);
+        border-color: rgba(15, 23, 42, 0.12);
+      }
+
+      .store-btn.disabled {
+        opacity: 0.45;
+        pointer-events: none;
+      }
+
+      .store-btn-text {
+        text-align: left;
+      }
+
+      .store-btn-text small {
+        display: block;
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      .store-btn-text strong {
+        display: block;
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .store-icon {
+        width: 1.75rem;
+        height: 1.75rem;
+        flex-shrink: 0;
+      }
+
+      /* Footer */
+      .footer {
+        padding: 2.5rem 1.5rem 3rem;
+        border-top: 1px solid var(--line);
+        background: var(--bg-subtle);
+      }
+
+      .footer-inner {
+        width: min(100%, 68rem);
+        margin: 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+      }
+
+      .footer-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+
+      .footer-brand img {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 0.35rem;
+      }
+
+      .footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+      }
+
+      .footer-links a:hover {
+        color: var(--text);
+      }
+
+      .footer-copy {
+        width: 100%;
+        text-align: center;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 1rem;
+      }
+
+      /* Pain points */
+      .pain {
+        padding: 5rem 1.5rem;
+        background: var(--bg-elevated);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .pain-inner {
+        width: min(100%, 68rem);
+        margin: 0 auto;
+        text-align: center;
+      }
+
+      .pain-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+        margin-top: 2.5rem;
+        text-align: left;
+      }
+
+      @media (max-width: 768px) {
+        .pain-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .pain-card {
+        padding: 1.5rem;
+        border-radius: 1rem;
+        background: var(--bg);
+        border: 1px solid var(--line);
+      }
+
+      .pain-card p {
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        color: var(--text-secondary);
+        font-style: italic;
+      }
+
+      .pain-card cite {
+        display: block;
+        margin-top: 0.85rem;
+        font-style: normal;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+
+      .pain-bridge {
+        margin: 2.5rem auto 0;
+        max-width: 32rem;
+        font-size: 1.15rem;
+        font-weight: 600;
+        line-height: 1.55;
+        color: var(--text);
+      }
+
+      /* Benefits grid */
+      .benefits-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+        margin-top: 3rem;
+      }
+
+      @media (max-width: 900px) {
+        .benefits-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
+      @media (max-width: 560px) {
+        .benefits-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .benefit-card {
+        padding: 1.75rem;
+        border-radius: 1.15rem;
+        background: var(--bg-elevated);
+        border: 1px solid var(--line);
+        box-shadow: 0 8px 32px var(--shadow);
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .benefit-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 16px 48px rgba(15, 23, 42, 0.1);
+      }
+
+      .benefit-card h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+
+      .benefit-card p {
+        margin: 0;
+        font-size: 0.88rem;
+        line-height: 1.6;
+        color: var(--text-secondary);
+      }
+
+      .benefit-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.65rem;
+        display: grid;
+        place-items: center;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+      }
+
+      /* Use cases */
+      .use-cases {
+        padding: 6rem 1.5rem;
+        background: linear-gradient(180deg, var(--bg-subtle) 0%, var(--bg) 100%);
+      }
+
+      .use-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+        margin-top: 3rem;
+      }
+
+      @media (max-width: 640px) {
+        .use-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .use-card {
+        padding: 1.75rem 1.75rem 1.75rem 1.35rem;
+        border-radius: 1rem;
+        background: var(--bg-elevated);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+      }
+
+      .use-card h3 {
+        margin: 0 0 0.45rem;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .use-card p {
+        margin: 0;
+        font-size: 0.88rem;
+        line-height: 1.6;
+        color: var(--text-secondary);
+      }
+
+      /* Voice highlight */
+      .voice-banner {
+        padding: 5rem 1.5rem;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(34, 211, 238, 0.06) 100%);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .voice-inner {
+        width: min(100%, 68rem);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        align-items: center;
+      }
+
+      @media (max-width: 768px) {
+        .voice-inner {
+          grid-template-columns: 1fr;
+          gap: 2rem;
+        }
+      }
+
+      .voice-visual {
+        display: flex;
+        justify-content: center;
+      }
+
+      .voice-bubble {
+        width: 100%;
+        max-width: 20rem;
+        padding: 1.75rem;
+        border-radius: 1.25rem;
+        background: var(--bg-elevated);
+        border: 1px solid var(--line);
+        box-shadow: 0 24px 64px var(--shadow);
+      }
+
+      .voice-bubble-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 0.75rem;
+      }
+
+      .voice-bubble p {
+        margin: 0;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: var(--text);
+      }
+
+      .voice-bubble .reply {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--line);
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+      }
+
+      /* CTA strip */
+      .cta-strip {
+        padding: 4rem 1.5rem;
+        text-align: center;
+        background: var(--text);
+        color: #f8fafc;
+      }
+
+      .cta-strip h2 {
+        margin: 0 0 0.75rem;
+        font-size: clamp(1.75rem, 4vw, 2.5rem);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+
+      .cta-strip p {
+        margin: 0 auto 1.75rem;
+        max-width: 28rem;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: #94a3b8;
+      }
+
+      .cta-strip .btn-primary {
+        box-shadow: 0 8px 32px rgba(59, 130, 246, 0.5);
+      }
+
+      /* FAQ */
+      .faq-list {
+        margin-top: 3rem;
+        max-width: 40rem;
+      }
+
+      .faq-item {
+        border-bottom: 1px solid var(--line);
+        padding: 1.35rem 0;
+      }
+
+      .faq-item:first-child {
+        border-top: 1px solid var(--line);
+      }
+
+      .faq-item h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .faq-item p {
+        margin: 0;
+        font-size: 0.92rem;
+        line-height: 1.65;
+        color: var(--text-secondary);
+      }
+
+      /* Scroll reveal */
+      .reveal {
+        opacity: 0;
+        transform: translateY(28px);
+        transition: opacity 0.7s ease, transform 0.7s ease;
+      }
+
+      .reveal.visible {
+        opacity: 1;
+        transform: none;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-inner">
+        <a class="nav-brand" href="#">
+          <img class="nav-logo" src="assets/icon-512.png" alt="BYT" width="28" height="28" />
+          BYT
+        </a>
+        <div class="nav-links">
+          <a href="#why">Why BYT</a>
+          <a href="#features">Features</a>
+          <a href="#how">How it works</a>
+          <a href="#faq">FAQ</a>
+          <a href="#download">Download</a>
+        </div>
+        <a class="nav-cta" href="#download">Get the app</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="hero-bg">
+        <img src="assets/hero-bg.jpg" alt="" aria-hidden="true" />
+      </div>
+      <div class="hero-content reveal">
+        <div class="hero-eyebrow">Build Your Tomorrow</div>
+        <h1><span>Your coach.<br />Your goals.<br />Your tomorrow.</span></h1>
+        <p class="hero-sub">
+          You have goals. You know what you should do. But staying consistent, staying honest,
+          and knowing your next step? That's the hard part. BYT is the coach in your pocket —
+          AI guidance, daily check-ins, and progress tracking in one place.
+        </p>
+        <div class="hero-actions">
+          <a
+            class="btn btn-primary play-badge"
+            href="https://play.google.com/store/apps/details?id=com.LiveYourPotential.myapp"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M3.6 1.8A1.2 1.2 0 0 0 2.4 3v18a1.2 1.2 0 0 0 1.8 1.05l15.6-9a1.2 1.2 0 0 0 0-2.1L3.6 1.8z" />
+            </svg>
+            Download on Google Play
+          </a>
+          <a class="btn btn-ghost" href="#features">See what's inside</a>
+        </div>
+      </div>
+
+      <div class="hero-phone reveal">
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <div class="phone-status">
+              <span>9:41</span>
+              <span>●●●</span>
+            </div>
+            <div class="phone-header">
+              <h3>BYT</h3>
+              <p>Build Your Tomorrow</p>
+            </div>
+            <div class="phone-body">
+              <div class="phone-card">
+                <div class="phone-card-label">Today's focus</div>
+                <div class="phone-card-value">3 active goals</div>
+                <div class="phone-card-sub">68% average progress this week</div>
+              </div>
+              <div class="phone-row">
+                <div class="phone-tool">
+                  <div class="phone-tool-icon" style="background: rgba(59,130,246,0.16); color: #60a5fa">✓</div>
+                  Check-In
+                </div>
+                <div class="phone-tool">
+                  <div class="phone-tool-icon" style="background: rgba(124,58,237,0.16); color: #a78bfa">◎</div>
+                  AI Coach
+                </div>
+              </div>
+              <div class="phone-row">
+                <div class="phone-tool">
+                  <div class="phone-tool-icon" style="background: rgba(34,211,238,0.16); color: #22d3ee">↗</div>
+                  Goals
+                </div>
+                <div class="phone-tool">
+                  <div class="phone-tool-icon" style="background: rgba(245,158,11,0.16); color: #fbbf24">✦</div>
+                  Journal
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-glow" aria-hidden="true"></div>
+      </div>
+    </header>
+
+    <section class="stats">
+      <div class="stats-grid reveal">
+        <div>
+          <div class="stat-value">24/7</div>
+          <div class="stat-label">AI coach ready when you are</div>
+        </div>
+        <div>
+          <div class="stat-value">5 min</div>
+          <div class="stat-label">Daily check-in — that's all it takes</div>
+        </div>
+        <div>
+          <div class="stat-value">1 app</div>
+          <div class="stat-label">Goals, journal, coach & progress</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pain" id="why">
+      <div class="pain-inner reveal">
+        <div class="section-label">Sound familiar?</div>
+        <h2 class="section-title">You don't need more apps.<br />You need a system that sticks.</h2>
+        <div class="pain-grid">
+          <div class="pain-card">
+            <p>"I set goals every January and forget them by February."</p>
+            <cite>— The motivation drop-off</cite>
+          </div>
+          <div class="pain-card">
+            <p>"I know what I should do. I just can't make myself do it consistently."</p>
+            <cite>— The consistency gap</cite>
+          </div>
+          <div class="pain-card">
+            <p>"I don't want another generic chatbot. I want something that actually knows me."</p>
+            <cite>— The personalization problem</cite>
+          </div>
+        </div>
+        <p class="pain-bridge">
+          BYT was built for exactly this — not to add noise to your life, but to give you
+          structure, accountability, and a coach that grows with you.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="benefits">
+      <div class="section-inner reveal">
+        <div class="section-label">Why BYT</div>
+        <h2 class="section-title">Coaching that fits your life.</h2>
+        <p class="section-desc">
+          Most productivity apps track tasks. BYT tracks <em>you</em> — your energy, your moods,
+          your wins, and the goals that actually matter. It's the difference between checking boxes
+          and making real change.
+        </p>
+        <div class="benefits-grid">
+          <div class="benefit-card">
+            <div class="benefit-icon" style="background: rgba(59,130,246,0.12); color: #2563eb">🎯</div>
+            <h3>Goals that stay visible</h3>
+            <p>Set goals, track progress, and watch your dashboard update as you move forward — not just once, but every week.</p>
+          </div>
+          <div class="benefit-card">
+            <div class="benefit-icon" style="background: rgba(124,58,237,0.12); color: #7c3aed">🧠</div>
+            <h3>A coach that remembers</h3>
+            <p>Your AI coach learns from your profile, check-ins, and goals — so advice gets sharper the more you use it.</p>
+          </div>
+          <div class="benefit-card">
+            <div class="benefit-icon" style="background: rgba(34,211,238,0.12); color: #0891b2">🎙️</div>
+            <h3>Talk or type</h3>
+            <p>Prefer speaking? Use voice coaching for natural, hands-free conversations when typing feels like too much.</p>
+          </div>
+          <div class="benefit-card">
+            <div class="benefit-icon" style="background: rgba(245,158,11,0.12); color: #d97706">📈</div>
+            <h3>Streaks that motivate</h3>
+            <p>Daily check-ins build momentum. Track mood, energy, stress, and sleep — and spot patterns before they become problems.</p>
+          </div>
+          <div class="benefit-card">
+            <div class="benefit-icon" style="background: rgba(34,197,94,0.12); color: #16a34a">📓</div>
+            <h3>Private journal</h3>
+            <p>Capture thoughts, wins, and reflections in your own space. No social feed, no performance — just you and your progress.</p>
+          </div>
+          <div class="benefit-card">
+            <div class="benefit-icon" style="background: rgba(239,68,68,0.1); color: #dc2626">🔒</div>
+            <h3>Your data, your control</h3>
+            <p>We don't sell your data. Your coaching history stays private, and you can request account deletion anytime.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="section-inner">
+        <div class="reveal">
+          <div class="section-label">Features</div>
+          <h2 class="section-title">Everything you need to grow.</h2>
+          <p class="section-desc">
+            BYT isn't another to-do list. It's a coaching companion designed around
+            how real people actually change — one conversation, one check-in, one goal at a time.
+            No overwhelm. No guilt. Just a clear path forward.
+          </p>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-copy">
+            <div class="section-label">AI Coach</div>
+            <h2 class="section-title" style="font-size: clamp(1.75rem, 4vw, 2.5rem)">
+              Talk it through.<br />Move forward.
+            </h2>
+            <p class="section-desc">
+              Speak with an AI coach that remembers your context, goals, and check-ins.
+              Get thoughtful guidance when you're stuck — or when you just need a push.
+            </p>
+            <ul class="feature-bullets">
+              <li>Voice and text conversations</li>
+              <li>Context-aware coaching from your profile & history</li>
+              <li>Chat history you can revisit anytime</li>
+            </ul>
+          </div>
+          <div class="feature-visual">
+            <div class="feature-card">
+              <div class="feature-icon" style="background: rgba(124,58,237,0.16); color: #a78bfa">◎</div>
+              <h3>AI Coach</h3>
+              <p>"What's one small step I can take toward my goal today?"</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature reverse reveal">
+          <div class="feature-copy">
+            <div class="section-label">Daily Check-In</div>
+            <h2 class="section-title" style="font-size: clamp(1.75rem, 4vw, 2.5rem)">
+              Show up.<br />Every day.
+            </h2>
+            <p class="section-desc">
+              Quick daily reflections help you stay honest with yourself.
+              Build momentum with streaks and see patterns over time.
+            </p>
+            <ul class="feature-bullets">
+              <li>Guided daily prompts</li>
+              <li>Mood and energy tracking</li>
+              <li>Streaks that keep you accountable</li>
+            </ul>
+          </div>
+          <div class="feature-visual">
+            <div class="feature-card">
+              <div class="feature-icon" style="background: rgba(59,130,246,0.16); color: #60a5fa">✓</div>
+              <h3>Daily Check-In</h3>
+              <p>How are you feeling today? What went well? What will you do differently?</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-copy">
+            <div class="section-label">Goals & Journal</div>
+            <h2 class="section-title" style="font-size: clamp(1.75rem, 4vw, 2.5rem)">
+              Clarity.<br />Progress.<br />Reflection.
+            </h2>
+            <p class="section-desc">
+              Set meaningful goals, track your progress, and capture thoughts in your
+              personal journal — all in one place.
+            </p>
+            <ul class="feature-bullets">
+              <li>Goal tracking with progress updates</li>
+              <li>Private journal for notes and reflections</li>
+              <li>Dashboard that shows the full picture</li>
+            </ul>
+          </div>
+          <div class="feature-visual">
+            <div class="feature-card">
+              <div class="feature-icon" style="background: rgba(34,211,238,0.16); color: #22d3ee">↗</div>
+              <h3>Goals & Journal</h3>
+              <p>Turn intentions into measurable progress — and reflect on the journey.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="voice-banner">
+      <div class="voice-inner reveal">
+        <div>
+          <div class="section-label">Voice coaching</div>
+          <h2 class="section-title" style="font-size: clamp(1.75rem, 4vw, 2.75rem)">
+            Sometimes you need to talk it out.
+          </h2>
+          <p class="section-desc">
+            Not every moment calls for typing. BYT's voice coaching lets you have real
+            conversations — ask for advice, work through a block, or get accountability
+            on the go. It's like having a coach on speed dial, without the hourly rate.
+          </p>
+          <ul class="feature-bullets" style="margin-top: 1.5rem">
+            <li>Natural voice replies powered by advanced AI</li>
+            <li>Hands-free when you're walking, driving, or winding down</li>
+            <li>Same coach memory as your text chats</li>
+          </ul>
+        </div>
+        <div class="voice-visual">
+          <div class="voice-bubble">
+            <div class="voice-bubble-label">You</div>
+            <p>"I've been procrastinating on my side project all week. What's one thing I can do tonight?"</p>
+            <div class="reply">
+              <strong style="color: var(--accent); font-size: 0.78rem">BYT Coach</strong><br />
+              "Let's make tonight easy to win. Open your project for 15 minutes and write one sentence about what you'd ship first. Small starts beat perfect plans."
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="use-cases">
+      <div class="section-inner reveal">
+        <div style="text-align: center">
+          <div class="section-label">Who it's for</div>
+          <h2 class="section-title">Whatever you're working toward.</h2>
+          <p class="section-desc" style="margin: 0 auto">
+            BYT adapts to your life — whether you're building a career, a habit, or a better mindset.
+          </p>
+        </div>
+        <div class="use-grid">
+          <div class="use-card">
+            <h3>Career & ambition</h3>
+            <p>Land a promotion, switch fields, or finally start the business you've been planning. Set milestones and check in weekly.</p>
+          </div>
+          <div class="use-card">
+            <h3>Health & fitness</h3>
+            <p>Build gym consistency, fix your sleep, or eat better. Track energy and mood alongside your goals to see what actually works.</p>
+          </div>
+          <div class="use-card">
+            <h3>Students & learners</h3>
+            <p>Stay on top of coursework, beat procrastination, and build study habits that last beyond exam season.</p>
+          </div>
+          <div class="use-card">
+            <h3>Mindset & wellbeing</h3>
+            <p>Process stress, build self-awareness, and reflect daily. Your journal and check-ins become a record of how far you've come.</p>
+          </div>
+          <div class="use-card">
+            <h3>Side projects</h3>
+            <p>Ship that app, write that book, launch that channel. Break big dreams into goals your coach can help you actually finish.</p>
+          </div>
+          <div class="use-card">
+            <h3>Life transitions</h3>
+            <p>Moving cities, changing jobs, or starting fresh? BYT gives you structure when everything else feels uncertain.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how" style="padding-top: 2rem; border-top: 1px solid var(--line)">
+      <div class="section-inner reveal" style="text-align: center">
+        <div class="section-label">How it works</div>
+        <h2 class="section-title">Three steps to your potential.</h2>
+        <p class="section-desc" style="margin: 0 auto 3rem">
+          Getting started takes minutes. No complicated setup — just tell BYT who you are,
+          what you're working toward, and what gets in your way. Your coach intake personalizes
+          everything from day one.
+        </p>
+        <div class="stats-grid" style="text-align: left">
+          <div class="feature-card">
+            <div class="feature-icon" style="background: var(--accent-soft); color: var(--accent)">1</div>
+            <h3>Set up your profile</h3>
+            <p>Share your profession, goals, and what you're struggling with. BYT creates a coach profile tailored to you — not a one-size-fits-all bot.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: var(--accent-soft); color: var(--accent)">2</div>
+            <h3>Check in daily</h3>
+            <p>Log your mood, energy, stress, and wins in under five minutes. Streaks build naturally — and your coach uses this context in every conversation.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon" style="background: var(--accent-soft); color: var(--accent)">3</div>
+            <h3>Coach when you need it</h3>
+            <p>Text or talk to your AI coach anytime. Ask for a plan, work through a setback, or celebrate a win. It's always there.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="faq" style="padding-top: 3rem">
+      <div class="section-inner reveal">
+        <div class="section-label">FAQ</div>
+        <h2 class="section-title">Questions? We've got answers.</h2>
+        <div class="faq-list">
+          <div class="faq-item">
+            <h3>How does pricing work?</h3>
+            <p>BYT includes monthly coaching credits so you can chat with your AI coach regularly. Standard and Plus plans are available in-app — pick what fits how often you want to connect.</p>
+          </div>
+          <div class="faq-item">
+            <h3>How is this different from ChatGPT?</h3>
+            <p>Generic AI forgets you between sessions. BYT remembers your goals, check-in history, and coach profile — so every conversation builds on the last. It's coaching software, not a chat window.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Is my data private?</h3>
+            <p>Yes. We don't sell your personal data. Your journal, check-ins, and coaching history are used only to power your experience. You can delete your account and data anytime.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Do I need to check in every single day?</h3>
+            <p>Daily check-ins work best, but life happens. Even a few times a week builds useful patterns — and your coach adapts to whatever rhythm you keep.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Can I use voice instead of typing?</h3>
+            <p>Absolutely. BYT supports voice coaching for natural, spoken conversations — great for when you're on the move or just don't feel like typing.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Is BYT available on iPhone?</h3>
+            <p>BYT is on Google Play now. iOS is coming soon — stay tuned.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta-strip">
+      <div class="reveal">
+        <h2>Your potential won't wait.<br />Neither should you.</h2>
+        <p>Join BYT today. Set your first goal, complete your first check-in, and talk to your coach — all before bedtime.</p>
+        <a
+          class="btn btn-primary play-badge"
+          href="https://play.google.com/store/apps/details?id=com.LiveYourPotential.myapp"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="width:1.25rem;height:1.25rem">
+            <path d="M3.6 1.8A1.2 1.2 0 0 0 2.4 3v18a1.2 1.2 0 0 0 1.8 1.05l15.6-9a1.2 1.2 0 0 0 0-2.1L3.6 1.8z" />
+          </svg>
+          Get BYT on Google Play
+        </a>
+      </div>
+    </section>
+
+    <section class="download" id="download">
+      <div class="download-glow" aria-hidden="true"></div>
+      <div class="download-inner reveal">
+        <h2>Build Your Tomorrow.<br />Starting today.</h2>
+        <p>
+          Get BYT on Android, complete your coach intake in minutes, and take the first step
+          toward the life you're building. iOS coming soon.
+        </p>
+        <div class="store-buttons">
+          <a
+            class="store-btn"
+            href="https://play.google.com/store/apps/details?id=com.LiveYourPotential.myapp"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg class="store-icon" viewBox="0 0 24 24" fill="#3ddc84" aria-hidden="true">
+              <path d="M3.6 1.8A1.2 1.2 0 0 0 2.4 3v18a1.2 1.2 0 0 0 1.8 1.05l15.6-9a1.2 1.2 0 0 0 0-2.1L3.6 1.8z" />
+            </svg>
+            <div class="store-btn-text">
+              <small>Get it on</small>
+              <strong>Google Play</strong>
+            </div>
+          </a>
+          <div class="store-btn disabled" aria-label="App Store coming soon">
+            <svg class="store-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+            </svg>
+            <div class="store-btn-text">
+              <small>Coming soon</small>
+              <strong>App Store</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img src="assets/icon-512.png" alt="" width="24" height="24" />
+          BYT — Build Your Tomorrow
+        </div>
+        <div class="footer-links">
+          <a href="./privacy/">Privacy Policy</a>
+          <a href="./delete-account/">Delete Account</a>
+          <a href="mailto:eshaantr.mukku@gmail.com">Contact</a>
+        </div>
+        <p class="footer-copy">&copy; 2026 Build Your Tomorrow. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script>
+      const reveals = document.querySelectorAll('.reveal');
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+      );
+      reveals.forEach((el) => observer.observe(el));
+      document.querySelector('.hero .reveal')?.classList.add('visible');
+    </script>
+  </body>
+</html>
