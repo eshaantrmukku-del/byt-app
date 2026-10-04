@@ -1,4 +1,4 @@
-import { deleteDoc, doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 
 import { localDateKey } from '@/features/dates';
 import { prepareJournalText } from '@/features/journal/journal';
@@ -14,15 +14,4 @@ export function addJournalEntry(uid: string, text: string): Promise<WriteOutcome
   return trackWrite(
     setDoc(ref, { date: localDateKey(), text: value, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })
   );
-}
-
-/** Updates an entry's text. Blank text is a no-op (delete is a separate, explicit action). */
-export function updateJournalEntry(uid: string, id: string, text: string): Promise<WriteOutcome> | null {
-  const value = prepareJournalText(text);
-  if (!value) return null;
-  return trackWrite(updateDoc(doc(userCollection(uid, 'journal'), id), { text: value, updatedAt: serverTimestamp() }));
-}
-
-export function deleteJournalEntry(uid: string, id: string): Promise<WriteOutcome> {
-  return trackWrite(deleteDoc(doc(userCollection(uid, 'journal'), id)));
 }

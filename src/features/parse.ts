@@ -9,7 +9,7 @@ import {
   type JournalEntry,
 } from '@/types/models';
 
-import { isRating } from './checkIns/checkIns';
+import { isMetricValue, isMoodId } from './checkIns/checkIns';
 import { isIsoDate } from './profile/dob';
 
 type Data = Record<string, unknown>;
@@ -35,17 +35,19 @@ export function parseGoal(id: string, d: Data): Goal | null {
 }
 
 export function parseCheckIn(id: string, d: Data): CheckIn | null {
-  if (!isIsoDate(id) || !isRating(d.mood) || !isRating(d.energy) || !isRating(d.stress) || !isRating(d.sleep)) {
+  const moods = Array.isArray(d.moods) ? d.moods.filter(isMoodId) : [];
+  if (!isIsoDate(id) || moods.length === 0 || !isMetricValue(d.happiness) || !isMetricValue(d.stress) || !isMetricValue(d.sleep)) {
     return null;
   }
   return {
     id,
     date: id,
-    mood: d.mood,
-    energy: d.energy,
+    moods,
+    happiness: d.happiness,
     stress: d.stress,
     sleep: d.sleep,
-    ...(typeof d.note === 'string' && d.note ? { note: d.note } : {}),
+    ...(typeof d.reflection === 'string' && d.reflection ? { reflection: d.reflection } : {}),
+    ...(typeof d.win === 'string' && d.win ? { win: d.win } : {}),
     createdAt: toMillis(d.createdAt),
     updatedAt: toMillis(d.updatedAt),
   };

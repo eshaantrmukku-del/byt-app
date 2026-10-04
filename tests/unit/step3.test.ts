@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeStreaks, EMPTY_RATINGS, missingRatings } from '@/features/checkIns/checkIns';
-import { addDays, daysBetween, formatDayLabel, localDateKey } from '@/features/dates';
-import { diffGoal, NEW_GOAL_DRAFT, normaliseProgress, resolveGoalDraft, sortGoals } from '@/features/goals/goals';
+import { computeStreaks, toggleMood } from '@/features/checkIns/checkIns';
+import { addDays, localDateKey } from '@/features/dates';
+import { diffGoal, NEW_GOAL_DRAFT, normaliseProgress, resolveGoalDraft } from '@/features/goals/goals';
 import { prepareJournalText, sortJournal } from '@/features/journal/journal';
 import { parseAccount, parseCheckIn, parseGoal, parseJournalEntry, toMillis } from '@/features/parse';
-import type { Goal, JournalEntry } from '@/types/models';
+import type { JournalEntry } from '@/types/models';
 
 describe('dates', () => {
   it('formats local date keys and does day arithmetic across month/year/DST boundaries', () => {
@@ -14,14 +14,6 @@ describe('dates', () => {
     expect(addDays('2024-03-01', -1)).toBe('2024-02-29');
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
     expect(addDays('2026-03-28', 2)).toBe('2026-03-30'); // UK clocks change 29 Mar
-    expect(daysBetween('2026-10-01', '2026-10-04')).toBe(3);
-  });
-
-  it('labels days relative to today', () => {
-    expect(formatDayLabel('2026-10-04', '2026-10-04')).toBe('Today');
-    expect(formatDayLabel('2026-10-03', '2026-10-04')).toBe('Yesterday');
-    expect(formatDayLabel('2026-10-01', '2026-10-04')).toBe('Thu 1 Oct');
-    expect(formatDayLabel('2025-10-01', '2026-10-04')).toBe('Wed 1 Oct 2025');
   });
 });
 
@@ -55,10 +47,11 @@ describe('computeStreaks', () => {
   });
 });
 
-describe('check-in ratings', () => {
-  it('reports unanswered ratings', () => {
-    expect(missingRatings(EMPTY_RATINGS)).toEqual(['mood', 'energy', 'stress', 'sleep']);
-    expect(missingRatings({ mood: 3, energy: 4, stress: null, sleep: 7 })).toEqual(['stress', 'sleep']);
+describe('mood selection', () => {
+  it('toggles moods but always keeps at least one', () => {
+    expect(toggleMood(['energized'], 'calm')).toEqual(['energized', 'calm']);
+    expect(toggleMood(['energized', 'calm'], 'energized')).toEqual(['calm']);
+    expect(toggleMood(['calm'], 'calm')).toEqual(['calm']);
   });
 });
 
@@ -85,13 +78,6 @@ describe('goals', () => {
     expect(diffGoal(NEW_GOAL_DRAFT, { ...NEW_GOAL_DRAFT, progress: 20 })).toEqual({ progress: 20 });
   });
 
-  it('sorts active first, then most recently updated', () => {
-    const g = (id: string, status: Goal['status'], updatedAt: number): Goal => ({
-      id, title: id, category: 'other', status, progress: 0, createdAt: 0, updatedAt,
-    });
-    const sorted = sortGoals([g('c', 'completed', 9), g('a1', 'active', 1), g('p', 'paused', 5), g('a2', 'active', 3)]);
-    expect(sorted.map((x) => x.id)).toEqual(['a2', 'a1', 'p', 'c']);
-  });
 });
 
 describe('journal', () => {
@@ -123,9 +109,10 @@ describe('parsing Firestore documents', () => {
       category: 'other', status: 'active', progress: 100,
     });
 
-    const checkIn = { mood: 3, energy: 4, stress: 2, sleep: 5, createdAt: ts, updatedAt: ts };
-    expect(parseCheckIn('2026-10-04', checkIn)).toMatchObject({ date: '2026-10-04', mood: 3 });
-    expect(parseCheckIn('2026-10-04', { ...checkIn, mood: 9 })).toBeNull();
+    const checkIn = { moods: ['calm', 'bogus'], happiness: 7, stress: 3, sleep: 8, win: 'Gym', createdAt: ts, updatedAt: ts };
+    expect(parseCheckIn('2026-10-04', checkIn)).toMatchObject({ date: '2026-10-04', moods: ['calm'], happiness: 7, win: 'Gym' });
+    expect(parseCheckIn('2026-10-04', { ...checkIn, happiness: 11 })).toBeNull();
+    expect(parseCheckIn('2026-10-04', { ...checkIn, moods: [] })).toBeNull();
     expect(parseCheckIn('today', checkIn)).toBeNull();
 
     expect(parseJournalEntry('j', { date: '2026-10-04', text: 'hi', createdAt: ts })).toMatchObject({ text: 'hi', updatedAt: 1234 });

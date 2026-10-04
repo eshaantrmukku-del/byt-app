@@ -32,12 +32,11 @@ export default function RootLayout() {
         </Stack.Protected>
         <Stack.Protected guard={gate === 'ready'}>
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="edit-profile" options={{ animation: 'slide_from_right' }} />
-          <Stack.Screen name="goal/[id]" options={{ animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="check-in" options={{ animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="journal" options={{ animation: 'slide_from_right' }} />
+          <Stack.Screen name="edit-profile" options={{ animation: 'default' }} />
+          <Stack.Screen name="check-in" options={{ animation: 'default' }} />
+          <Stack.Screen name="journal" options={{ animation: 'default' }} />
         </Stack.Protected>
-        <Stack.Screen name="privacy" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="privacy" options={{ animation: 'default' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
     </ThemeProvider>

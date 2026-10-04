@@ -1,4 +1,4 @@
-import { GOAL_CATEGORIES, GOAL_STATUSES, type Goal, type GoalCategory, type GoalStatus } from '@/types/models';
+import { GOAL_CATEGORIES, GOAL_STATUSES, type GoalCategory, type GoalStatus } from '@/types/models';
 
 import { normaliseText } from '../profile/validation';
 
@@ -8,23 +8,30 @@ export const GOAL_TITLE_LIMIT = 200;
 export const CATEGORY_LABELS: Record<GoalCategory, string> = {
   career: 'Career',
   health: 'Health',
+  fitness: 'Fitness',
   personal: 'Personal',
   finance: 'Finance',
   learning: 'Learning',
-  relationships: 'Relationships',
+  social: 'Social',
   creativity: 'Creativity',
   other: 'Other',
 };
 
-export const STATUS_LABELS: Record<GoalStatus, string> = {
-  active: 'Active',
-  paused: 'Paused',
-  completed: 'Completed',
-};
+/** Categories offered when creating a goal, in the prototype's order. */
+export const PICKABLE_CATEGORIES: readonly GoalCategory[] = [
+  'career',
+  'health',
+  'fitness',
+  'personal',
+  'finance',
+  'learning',
+  'social',
+  'creativity',
+];
 
 export type GoalDraft = { title: string; category: GoalCategory; status: GoalStatus; progress: number };
 
-export const NEW_GOAL_DRAFT: GoalDraft = { title: '', category: 'personal', status: 'active', progress: 0 };
+export const NEW_GOAL_DRAFT: GoalDraft = { title: '', category: 'career', status: 'active', progress: 0 };
 
 export function normaliseProgress(value: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -53,12 +60,4 @@ export function diffGoal(current: GoalDraft, next: GoalDraft): Partial<GoalDraft
     if (current[key] !== next[key]) (changes as Record<string, unknown>)[key] = next[key];
   }
   return changes;
-}
-
-const STATUS_ORDER: Record<GoalStatus, number> = { active: 0, paused: 1, completed: 2 };
-
-export function sortGoals(goals: readonly Goal[]): Goal[] {
-  return [...goals].sort(
-    (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.updatedAt - a.updatedAt
-  );
 }

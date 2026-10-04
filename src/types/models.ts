@@ -53,10 +53,11 @@ export type GoalStatus = (typeof GOAL_STATUSES)[number];
 export const GOAL_CATEGORIES = [
   'career',
   'health',
+  'fitness',
   'personal',
   'finance',
   'learning',
-  'relationships',
+  'social',
   'creativity',
   'other',
 ] as const;
@@ -72,14 +73,28 @@ export type GoalDoc = {
   updatedAt: ServerTime;
 };
 
-/** Ratings are 1–5. Document id is the local calendar date, so there is one check-in per day. */
+export const MOOD_IDS = [
+  'energized',
+  'balanced',
+  'calm',
+  'anxious',
+  'tired',
+  'productive',
+  'focused',
+  'overwhelmed',
+] as const;
+export type MoodId = (typeof MOOD_IDS)[number];
+
+/** Sliders are 1–10. Document id is the local calendar date, so there is one check-in per day. */
 export type CheckInDoc = {
   date: IsoDate;
-  mood: number;
-  energy: number;
+  /** At least one; first is the primary mood. */
+  moods: MoodId[];
+  happiness: number;
   stress: number;
   sleep: number;
-  note?: string;
+  reflection?: string;
+  win?: string;
   createdAt: ServerTime;
   updatedAt: ServerTime;
 };

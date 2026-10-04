@@ -1,32 +1,47 @@
-import type { IsoDate } from '@/types/models';
+import { MOOD_IDS, type IsoDate, type MoodId } from '@/types/models';
 
 import { addDays } from '../dates';
 
-export type RatingKey = 'mood' | 'energy' | 'stress' | 'sleep';
+export type MoodOption = { id: MoodId; label: string; icon: string };
 
-export type RatingScale = { key: RatingKey; label: string; question: string; low: string; high: string };
-
-/** All ratings are 1–5. For stress, higher means more stressed. */
-export const RATING_SCALES: readonly RatingScale[] = [
-  { key: 'mood', label: 'Mood', question: 'How are you feeling?', low: 'Low', high: 'Great' },
-  { key: 'energy', label: 'Energy', question: 'How’s your energy?', low: 'Drained', high: 'Energised' },
-  { key: 'stress', label: 'Stress', question: 'How stressed are you?', low: 'Calm', high: 'Overwhelmed' },
-  { key: 'sleep', label: 'Sleep', question: 'How did you sleep?', low: 'Poorly', high: 'Really well' },
+export const MOODS: readonly MoodOption[] = [
+  { id: 'energized', label: 'Energized', icon: '⚡' },
+  { id: 'balanced', label: 'Balanced', icon: '⚖️' },
+  { id: 'calm', label: 'Calm', icon: '🍵' },
+  { id: 'anxious', label: 'Anxious', icon: '☁️' },
+  { id: 'tired', label: 'Tired', icon: '😴' },
+  { id: 'productive', label: 'Productive', icon: '🚀' },
+  { id: 'focused', label: 'Focused', icon: '🎯' },
+  { id: 'overwhelmed', label: 'Overwhelmed', icon: '🌊' },
 ];
 
-export const CHECK_IN_NOTE_LIMIT = 1000;
+export type MetricKey = 'happiness' | 'stress' | 'sleep';
 
-export type Ratings = Record<RatingKey, number | null>;
+export type Metric = { key: MetricKey; label: string; low: string; high: string; defaultValue: number };
 
-export const EMPTY_RATINGS: Ratings = { mood: null, energy: null, stress: null, sleep: null };
+/** 1–10 sliders, in display order. */
+export const METRICS: readonly Metric[] = [
+  { key: 'happiness', label: 'Happiness', low: 'LOW', high: 'HIGH', defaultValue: 7 },
+  { key: 'stress', label: 'Stress', low: 'CALM', high: 'STRESSED', defaultValue: 3 },
+  { key: 'sleep', label: 'Sleep Quality', low: 'POOR', high: 'EXCELLENT', defaultValue: 8 },
+];
 
-export function isRating(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 5;
+/** Must match firestore.rules. */
+export const REFLECTION_LIMIT = 2000;
+export const WIN_LIMIT = 500;
+
+export function isMetricValue(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 10;
 }
 
-/** Keys still unanswered, in display order. */
-export function missingRatings(ratings: Ratings): RatingKey[] {
-  return RATING_SCALES.map((s) => s.key).filter((k) => !isRating(ratings[k]));
+export function isMoodId(value: unknown): value is MoodId {
+  return typeof value === 'string' && (MOOD_IDS as readonly string[]).includes(value);
+}
+
+/** Toggles a mood; the last selected mood can't be removed. */
+export function toggleMood(selected: readonly MoodId[], id: MoodId): MoodId[] {
+  if (selected.includes(id)) return selected.length <= 1 ? [...selected] : selected.filter((m) => m !== id);
+  return [...selected, id];
 }
 
 export type Streaks = { current: number; best: number; checkedInToday: boolean };

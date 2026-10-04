@@ -19,8 +19,8 @@ service cloud.firestore {
       return value is string && value.size() >= min && value.size() <= max;
     }
 
-    function isRating(value) {
-      return value is int && value >= 1 && value <= 5;
+    function isMetric(value) {
+      return value is int && value >= 1 && value <= 10;
     }
 
     function isIsoDate(value) {
@@ -95,7 +95,7 @@ service cloud.firestore {
         return d.keys().hasAll(['title', 'category', 'status', 'progress', 'createdAt', 'updatedAt'])
           && d.keys().hasOnly(['title', 'category', 'status', 'progress', 'createdAt', 'updatedAt'])
           && isText(d.title, 1, 200)
-          && d.category in ['career', 'health', 'personal', 'finance', 'learning', 'relationships', 'creativity', 'other']
+          && d.category in ['career', 'health', 'fitness', 'personal', 'finance', 'learning', 'social', 'creativity', 'other']
           && d.status in ['active', 'paused', 'completed']
           && d.progress is int && d.progress >= 0 && d.progress <= 100;
       }
@@ -109,11 +109,14 @@ service cloud.firestore {
 
       // ---------- Daily check-ins (id = YYYY-MM-DD) ----------
       function validCheckIn(d, dateKey) {
-        return d.keys().hasAll(['date', 'mood', 'energy', 'stress', 'sleep', 'createdAt', 'updatedAt'])
-          && d.keys().hasOnly(['date', 'mood', 'energy', 'stress', 'sleep', 'note', 'createdAt', 'updatedAt'])
+        return d.keys().hasAll(['date', 'moods', 'happiness', 'stress', 'sleep', 'createdAt', 'updatedAt'])
+          && d.keys().hasOnly(['date', 'moods', 'happiness', 'stress', 'sleep', 'reflection', 'win', 'createdAt', 'updatedAt'])
           && isIsoDate(dateKey) && d.date == dateKey
-          && isRating(d.mood) && isRating(d.energy) && isRating(d.stress) && isRating(d.sleep)
-          && (!('note' in d) || isText(d.note, 0, 1000));
+          && d.moods is list && d.moods.size() >= 1 && d.moods.size() <= 8
+          && d.moods.toSet().difference(['energized', 'balanced', 'calm', 'anxious', 'tired', 'productive', 'focused', 'overwhelmed'].toSet()).size() == 0
+          && isMetric(d.happiness) && isMetric(d.stress) && isMetric(d.sleep)
+          && (!('reflection' in d) || isText(d.reflection, 0, 2000))
+          && (!('win' in d) || isText(d.win, 0, 500));
       }
 
       match /checkIns/{dateKey} {

@@ -1,121 +1,82 @@
 import { router } from 'expo-router';
+import { Lock, Mail, User } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Alert, TextInput } from 'react-native';
 
-import { friendlyError, MIN_PASSWORD_LENGTH, validateEmail, validateNewPassword } from '@/features/auth/authErrors';
+import { friendlyError, validateEmail, validateNewPassword } from '@/features/auth/authErrors';
 import { PROFILE_LIMITS } from '@/features/profile/validation';
 import { signUp } from '@/services/authService';
-import { AppText, Banner, Button, Logo, Screen, space, TextField } from '@/ui';
+import { AuthButton, AuthField, AuthLayout, AuthLink } from '@/ui/auth';
 
-type Errors = { name?: string; email?: string; password?: string };
-
-export default function SignUp() {
+export default function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<Errors>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  const onSubmit = async () => {
-    const next: Errors = {};
-    if (!name.trim()) next.name = 'Tell us what to call you.';
-    next.email = validateEmail(email) ?? undefined;
-    next.password = validateNewPassword(password) ?? undefined;
-    const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => v)) as Errors;
-    setErrors(clean);
-    setFormError(null);
-    if (Object.keys(clean).length > 0) return;
-
-    setBusy(true);
+  const handleSignup = async () => {
+    if (!email.trim() || !name.trim() || !password) {
+      Alert.alert('Missing Fields', 'Please fill in all fields.');
+      return;
+    }
+    const problem = validateEmail(email) ?? validateNewPassword(password);
+    if (problem) {
+      Alert.alert('Signup Failed', problem);
+      return;
+    }
+    setIsLoading(true);
     try {
       await signUp(name, email, password);
       // The root layout takes the new account into onboarding.
     } catch (e) {
-      setFormError(friendlyError(e));
-      setBusy(false);
+      Alert.alert('Signup Failed', friendlyError(e));
+      setIsLoading(false);
     }
   };
 
   return (
-    <Screen
-      scroll
-      footer={
-        <>
-          <Button label="Create account" onPress={onSubmit} loading={busy} />
-          <Button
-            label="Already have an account? Log in"
-            variant="ghost"
-            onPress={() => router.replace('/auth/login')}
-            disabled={busy}
-          />
-        </>
-      }
-    >
-      <View style={styles.header}>
-        <Logo size={40} />
-        <View style={styles.titles}>
-          <AppText variant="title">Start building your tomorrow</AppText>
-          <AppText tone="secondary">A private space to think clearly and follow through.</AppText>
-        </View>
-      </View>
+    <AuthLayout title="Join BYT" subtitle="Start building your tomorrow today.">
+      <AuthField
+        icon={User}
+        placeholder="Full Name"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
+        autoComplete="name"
+        maxLength={PROFILE_LIMITS.displayName}
+        returnKeyType="next"
+        onSubmitEditing={() => emailRef.current?.focus()}
+      />
+      <AuthField
+        ref={emailRef}
+        icon={Mail}
+        placeholder="Email Address"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+      />
+      <AuthField
+        ref={passwordRef}
+        icon={Lock}
+        placeholder="Create Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoComplete="new-password"
+        textContentType="newPassword"
+        returnKeyType="go"
+        onSubmitEditing={() => void handleSignup()}
+      />
 
-      <View style={styles.form}>
-        {formError ? <Banner message={formError} /> : null}
-        <TextField
-          label="What should we call you?"
-          value={name}
-          onChangeText={setName}
-          placeholder="First name"
-          autoComplete="given-name"
-          textContentType="givenName"
-          maxLength={PROFILE_LIMITS.displayName}
-          returnKeyType="next"
-          onSubmitEditing={() => emailRef.current?.focus()}
-          error={errors.name}
-        />
-        <TextField
-          ref={emailRef}
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          placeholder="you@example.com"
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          textContentType="emailAddress"
-          returnKeyType="next"
-          onSubmitEditing={() => passwordRef.current?.focus()}
-          error={errors.email}
-        />
-        <TextField
-          ref={passwordRef}
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-          secureTextEntry
-          autoComplete="new-password"
-          textContentType="newPassword"
-          returnKeyType="go"
-          onSubmitEditing={onSubmit}
-          error={errors.password}
-        />
-        <AppText variant="caption" tone="muted">
-          Your conversations and profile are private to your account.{' '}
-          <AppText variant="caption" tone="accent" accessibilityRole="link" onPress={() => router.push('/privacy')}>
-            How BYT handles your data
-          </AppText>
-        </AppText>
-      </View>
-    </Screen>
+      <AuthButton label="Get Started" onPress={() => void handleSignup()} loading={isLoading} />
+
+      <AuthLink prompt="Already have an account?" action="Log in" onPress={() => router.replace('/auth/login')} />
+    </AuthLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  header: { paddingTop: space.xxxl, gap: space.xxl },
-  titles: { gap: space.sm },
-  form: { marginTop: space.xxl, gap: space.lg },
-});

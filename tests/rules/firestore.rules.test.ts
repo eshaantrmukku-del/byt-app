@@ -189,15 +189,26 @@ describe('subcollections', () => {
     await assertSucceeds(deleteDoc(doc(dbFor(ALICE), 'users/alice/goals/g1')));
   });
 
-  it('check-ins: one per date id, ratings 1–5', async () => {
-    const checkIn = { date: '2026-10-04', mood: 4, energy: 3, stress: 2, sleep: 5, ...stamps() };
+  it('check-ins: one per date id, known moods, sliders 1–10', async () => {
+    const checkIn = { date: '2026-10-04', moods: ['energized', 'focused'], happiness: 7, stress: 3, sleep: 8, ...stamps() };
     await assertSucceeds(setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-04'), checkIn));
     await assertSucceeds(
-      setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-03'), { ...checkIn, date: '2026-10-03', note: 'ok' })
+      setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-03'), {
+        ...checkIn,
+        date: '2026-10-03',
+        reflection: 'ok',
+        win: 'Walk',
+      })
     );
     await assertFails(setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-05'), checkIn));
     await assertFails(
-      setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-06'), { ...checkIn, date: '2026-10-06', mood: 6 })
+      setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-06'), { ...checkIn, date: '2026-10-06', happiness: 11 })
+    );
+    await assertFails(
+      setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-07'), { ...checkIn, date: '2026-10-07', moods: [] })
+    );
+    await assertFails(
+      setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-08'), { ...checkIn, date: '2026-10-08', moods: ['ecstatic'] })
     );
     await assertFails(
       setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/today'), { ...checkIn, date: 'today' })
@@ -207,11 +218,11 @@ describe('subcollections', () => {
   it('updates keep createdAt; re-creating an existing check-in is rejected', async () => {
     const ref = doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-04');
     await assertSucceeds(
-      setDoc(ref, { date: '2026-10-04', mood: 3, energy: 3, stress: 3, sleep: 3, note: 'hi', ...stamps() })
+      setDoc(ref, { date: '2026-10-04', moods: ['calm'], happiness: 5, stress: 5, sleep: 5, win: 'hi', ...stamps() })
     );
-    await assertSucceeds(updateDoc(ref, { mood: 5, note: deleteField(), updatedAt: serverTimestamp() }));
-    await assertFails(setDoc(ref, { date: '2026-10-04', mood: 4, energy: 3, stress: 3, sleep: 3, ...stamps() }));
-    await assertFails(updateDoc(ref, { mood: 4 }));
+    await assertSucceeds(updateDoc(ref, { happiness: 9, win: deleteField(), updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(ref, { date: '2026-10-04', moods: ['calm'], happiness: 4, stress: 3, sleep: 3, ...stamps() }));
+    await assertFails(updateDoc(ref, { happiness: 4 }));
 
     const goal = doc(dbFor(ALICE), 'users/alice/goals/g1');
     await assertSucceeds(setDoc(goal, { title: 'Run', category: 'health', status: 'active', progress: 0, ...stamps() }));

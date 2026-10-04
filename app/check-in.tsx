@@ -1,169 +1,275 @@
+import Slider from '@react-native-community/slider';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { friendlyError } from '@/features/auth/authErrors';
-import {
-  CHECK_IN_NOTE_LIMIT,
-  computeStreaks,
-  EMPTY_RATINGS,
-  missingRatings,
-  RATING_SCALES,
-  type Ratings,
-} from '@/features/checkIns/checkIns';
-import { formatDayLabel, localDateKey } from '@/features/dates';
+import { METRICS, MOODS, REFLECTION_LIMIT, toggleMood, WIN_LIMIT, type MetricKey } from '@/features/checkIns/checkIns';
+import { localDateKey } from '@/features/dates';
 import { saveCheckIn } from '@/services/checkInsService';
-import { retryUserData } from '@/services/session';
 import { useAuthStore } from '@/stores/authStore';
+import { useProfileStore } from '@/stores/profileStore';
 import { useUserDataStore } from '@/stores/userDataStore';
-import { AppText, Banner, Button, Card, RatingPicker, Screen, ScreenHeader, space, TextField, useDiscardGuard } from '@/ui';
+import type { MoodId } from '@/types/models';
+import { theme } from '@/ui';
+
+const ACCENT = '#2563EB';
 
 export default function CheckInScreen() {
   const uid = useAuthStore((s) => s.user?.uid);
-  const { status, items, error: loadError } = useUserDataStore((s) => s.checkIns);
+  const firstName = useProfileStore((s) => s.profile?.displayName.split(' ')[0]) || 'Friend';
   const [today] = useState(localDateKey);
-  const existing = items.find((c) => c.id === today);
+  const existing = useUserDataStore((s) => s.checkIns.items.find((c) => c.id === today));
 
-  const initial = useMemo(
-    () => ({
-      ratings: existing
-        ? { mood: existing.mood, energy: existing.energy, stress: existing.stress, sleep: existing.sleep }
-        : EMPTY_RATINGS,
-      note: existing?.note ?? '',
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [existing?.id]
+  // Re-checking in on the same day edits today's check-in, so start from it.
+  const [moods, setMoods] = useState<MoodId[]>(existing?.moods ?? ['energized']);
+  const [metrics, setMetrics] = useState<Record<MetricKey, number>>(
+    existing
+      ? { happiness: existing.happiness, stress: existing.stress, sleep: existing.sleep }
+      : { happiness: 7, stress: 3, sleep: 8 }
   );
-  const [ratings, setRatings] = useState<Ratings>(initial.ratings);
-  const [note, setNote] = useState(initial.note);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
-
-  // Today's check-in may arrive after the screen opens; adopt it once.
-  const [shownInitial, setShownInitial] = useState(initial);
-  if (shownInitial !== initial) {
-    setShownInitial(initial);
-    setRatings(initial.ratings);
-    setNote(initial.note);
+  const [reflection, setReflection] = useState(existing?.reflection ?? '');
+  const [win, setWin] = useState(existing?.win ?? '');
+  const [submitting, setSubmitting] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const [adoptedId, setAdoptedId] = useState(existing?.id ?? null);
+  // Today's check-in can arrive from the cloud after the screen opens; adopt it if nothing was changed yet.
+  if (existing && adoptedId !== existing.id && !touched) {
+    setAdoptedId(existing.id);
+    setMoods(existing.moods);
+    setMetrics({ happiness: existing.happiness, stress: existing.stress, sleep: existing.sleep });
+    setReflection(existing.reflection ?? '');
+    setWin(existing.win ?? '');
   }
-  useEffect(() => {
-    if (done) router.back();
-  }, [done]);
 
-  const dirty = JSON.stringify({ ratings, note }) !== JSON.stringify(initial);
-  useDiscardGuard(dirty && !done);
-
-  const streaks = computeStreaks(
-    items.map((c) => c.id),
-    today
-  );
-  const recent = items.filter((c) => c.id !== today).slice(0, 6);
-
-  const onSave = async () => {
+  const handleSubmit = async () => {
     if (!uid) return;
-    const missing = missingRatings(ratings);
-    if (missing.length > 0) {
-      const names = RATING_SCALES.filter((s) => missing.includes(s.key)).map((s) => s.label.toLowerCase());
-      return setError(`Add a rating for ${names.join(', ')}.`);
-    }
-    setError(null);
-    setSaving(true);
+    setSubmitting(true);
     try {
-      await saveCheckIn(
-        uid,
-        today,
-        { mood: ratings.mood!, energy: ratings.energy!, stress: ratings.stress!, sleep: ratings.sleep!, note },
-        !!existing
-      );
-      setDone(true);
+      await saveCheckIn(uid, today, { moods, ...metrics, reflection, win }, !!existing);
+      router.back();
     } catch (e) {
-      setError(friendlyError(e, 'We couldn’t save your check-in. Please try again.'));
-      setSaving(false);
+      Alert.alert('Could not save', friendlyError(e, 'Check your connection and try again.'));
+      setSubmitting(false);
     }
   };
 
   return (
-    <Screen
-      scroll
-      footer={
-        <Button
-          label={existing ? 'Update check-in' : 'Save check-in'}
-          onPress={onSave}
-          loading={saving}
-          disabled={status === 'loading' || (!!existing && !dirty)}
-        />
-      }
-    >
-      <ScreenHeader title="Daily check-in" />
-
-      <View style={styles.intro}>
-        <AppText variant="title">{existing ? 'Today’s check-in' : 'How’s today going?'}</AppText>
-        <AppText tone="secondary">
-          {streaks.current > 0
-            ? `${streaks.current}-day streak${streaks.checkedInToday ? '' : ' — check in to keep it going'}.`
-            : 'A quick honest snapshot. Takes under a minute.'}
-        </AppText>
-      </View>
-
-      <View style={styles.form}>
-        {status === 'unavailable' && loadError ? (
-          <View style={styles.errorBox}>
-            <Banner message={loadError} />
-            <Button label="Try again" variant="secondary" onPress={retryUserData} />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back">
+              <ChevronLeft size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Daily Check-In</Text>
+            <View style={styles.headerSpacer} />
           </View>
-        ) : null}
-        {error ? <Banner message={error} /> : null}
 
-        {RATING_SCALES.map((scale) => (
-          <RatingPicker
-            key={scale.key}
-            label={scale.label}
-            question={scale.question}
-            low={scale.low}
-            high={scale.high}
-            value={ratings[scale.key]}
-            onChange={(v) => {
-              setRatings((r) => ({ ...r, [scale.key]: v }));
-              setError(null);
-            }}
-          />
-        ))}
+          <Text style={styles.title}>How are you feeling, {firstName}?</Text>
+          <Text style={styles.subtitle}>Take a moment to ground yourself.</Text>
 
-        <TextField
-          label="Anything on your mind?"
-          value={note}
-          onChangeText={setNote}
-          placeholder="A word or two is enough"
-          maxLength={CHECK_IN_NOTE_LIMIT}
-          multiline
-          optional
-        />
-      </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Select your mood</Text>
+            <View style={styles.moodGrid}>
+              {MOODS.map((mood) => {
+                const selected = moods.includes(mood.id);
+                return (
+                  <TouchableOpacity
+                    key={mood.id}
+                    style={[styles.moodChip, selected && styles.moodChipSelected]}
+                    onPress={() => {
+                      setTouched(true);
+                      setMoods((m) => toggleMood(m, mood.id));
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={mood.label}
+                    accessibilityState={{ selected }}
+                  >
+                    <Text style={[styles.moodText, { color: selected ? '#FFF' : theme.text }]}>
+                      {mood.icon} {mood.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
-      {recent.length > 0 ? (
-        <View style={styles.recent}>
-          <AppText variant="overline" tone="muted">
-            Recent days{streaks.best > 1 ? ` · best streak ${streaks.best}` : ''}
-          </AppText>
-          {recent.map((c) => (
-            <Card key={c.id} style={styles.recentCard}>
-              <AppText variant="label">{formatDayLabel(c.id, today)}</AppText>
-              <AppText variant="caption" tone="secondary">
-                Mood {c.mood} · Energy {c.energy} · Stress {c.stress} · Sleep {c.sleep}
-              </AppText>
-            </Card>
-          ))}
-        </View>
-      ) : null}
-    </Screen>
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Metrics</Text>
+            {METRICS.map((metric) => (
+              <View key={metric.key} style={styles.metricCard}>
+                <View style={styles.metricHeader}>
+                  <Text style={styles.metricName}>{metric.label}</Text>
+                  <Text style={styles.metricValue}>{metrics[metric.key]}</Text>
+                </View>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={1}
+                  maximumValue={10}
+                  step={1}
+                  value={metrics[metric.key]}
+                  onValueChange={(v) => {
+                    setTouched(true);
+                    setMetrics((m) => ({ ...m, [metric.key]: Math.round(v) }));
+                  }}
+                  minimumTrackTintColor={ACCENT}
+                  maximumTrackTintColor={theme.border}
+                  thumbTintColor={ACCENT}
+                  accessibilityLabel={metric.label}
+                />
+                <View style={styles.metricLabels}>
+                  <Text style={styles.metricEndLabel}>{metric.low}</Text>
+                  <Text style={styles.metricEndLabel}>{metric.high}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Reflect</Text>
+            <Text style={styles.inputLabel}>What&apos;s on your mind today?</Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Start typing..."
+              placeholderTextColor="#94A3B8"
+              accessibilityLabel="What's on your mind today?"
+              multiline
+              value={reflection}
+              onChangeText={(t) => {
+                setTouched(true);
+                setReflection(t);
+              }}
+              maxLength={REFLECTION_LIMIT}
+            />
+            <Text style={styles.inputLabel}>What is one small win you&apos;re aiming for?</Text>
+            <TextInput
+              style={styles.textArea}
+              placeholder="Focus on one achievable thing..."
+              placeholderTextColor="#94A3B8"
+              accessibilityLabel="What is one small win you're aiming for?"
+              multiline
+              value={win}
+              onChangeText={(t) => {
+                setTouched(true);
+                setWin(t);
+              }}
+              maxLength={WIN_LIMIT}
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.submitButton, submitting && styles.busy]}
+            onPress={() => void handleSubmit()}
+            disabled={submitting}
+            accessibilityRole="button"
+            accessibilityLabel="Submit Check-In"
+          >
+            {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Submit Check-In</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.skipButton} onPress={() => router.back()} accessibilityRole="button">
+            <Text style={styles.skipButtonText}>Skip for now</Text>
+          </TouchableOpacity>
+
+          <View style={styles.bottomSpace} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  intro: { marginTop: space.xl, gap: space.sm },
-  form: { marginTop: space.xxl, gap: space.xxl },
-  errorBox: { gap: space.md },
-  recent: { marginTop: space.xxxl, gap: space.sm },
-  recentCard: { gap: space.xs },
+  safeArea: { flex: 1, backgroundColor: theme.background },
+  flex: { flex: 1 },
+  contentContainer: { padding: 24 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 },
+  backButton: { padding: 8, marginLeft: -8 },
+  headerTitle: { fontSize: 16, fontWeight: '600', color: theme.text },
+  headerSpacer: { width: 40 },
+  title: { fontSize: 28, fontWeight: '700', color: theme.text, marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 16, color: '#64748B', textAlign: 'center', marginBottom: 32 },
+  section: { marginBottom: 32 },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginBottom: 16,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  moodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
+  moodChip: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    backgroundColor: theme.card,
+    borderColor: theme.border,
+  },
+  moodChipSelected: { backgroundColor: ACCENT, borderColor: ACCENT },
+  moodText: { fontSize: 15, fontWeight: '500' },
+  metricCard: {
+    backgroundColor: theme.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  metricHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  metricName: { fontSize: 16, fontWeight: '500', color: theme.text },
+  metricValue: { fontSize: 16, fontWeight: '700', color: ACCENT },
+  slider: { width: '100%', height: 40 },
+  metricLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  metricEndLabel: { fontSize: 11, color: '#94A3B8', fontWeight: '600' },
+  inputLabel: { fontSize: 15, fontWeight: '500', color: theme.text, marginBottom: 12 },
+  textArea: {
+    backgroundColor: theme.card,
+    borderRadius: 16,
+    padding: 16,
+    height: 120,
+    fontSize: 15,
+    color: theme.text,
+    textAlignVertical: 'top',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  submitButton: {
+    backgroundColor: ACCENT,
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  busy: { opacity: 0.75 },
+  submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  skipButton: { paddingVertical: 12, alignItems: 'center' },
+  skipButtonText: { color: '#64748B', fontSize: 15, fontWeight: '500' },
+  bottomSpace: { height: 40 },
 });

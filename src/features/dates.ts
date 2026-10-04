@@ -17,25 +17,3 @@ export function addDays(key: IsoDate, days: number): IsoDate {
   const dt = new Date(keyToUtc(key) + days * 86_400_000);
   return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())}`;
 }
-
-export function daysBetween(from: IsoDate, to: IsoDate): number {
-  return Math.round((keyToUtc(to) - keyToUtc(from)) / 86_400_000);
-}
-
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "Today", "Yesterday", or e.g. "Mon 3 Oct" (adds the year if it isn't this year). */
-export function formatDayLabel(key: IsoDate, today: IsoDate = localDateKey()): string {
-  const diff = daysBetween(key, today);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Yesterday';
-  const dt = new Date(keyToUtc(key));
-  const label = `${WEEKDAYS[dt.getUTCDay()]} ${dt.getUTCDate()} ${MONTHS[dt.getUTCMonth()]}`;
-  return key.slice(0, 4) === today.slice(0, 4) ? label : `${label} ${key.slice(0, 4)}`;
-}
-
-export function formatTime(ms: number): string {
-  const d = new Date(ms);
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-}
