@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { env } from '@/config/env';
@@ -22,7 +22,7 @@ export default function Splash() {
   const profileError = useProfileStore((s) => s.error);
   const [introDone, setIntroDone] = useState(introPlayed);
   const [showSlowHint, setShowSlowHint] = useState(false);
-  const values = useRef(WORDS.map(() => new Animated.Value(introPlayed ? 1 : 0))).current;
+  const [values] = useState(() => WORDS.map(() => new Animated.Value(introPlayed ? 1 : 0)));
 
   useEffect(() => {
     SplashScreen.hideAsync().catch(() => undefined);

@@ -16,7 +16,7 @@ export function DobField({ value, onChange, error }: Props) {
   const monthRef = useRef<TextInput>(null);
   const yearRef = useRef<TextInput>(null);
 
-  const part = (key: keyof DobParts, max: number, next?: RefObject<TextInput | null>) => (text: string) => {
+  const handle = (key: keyof DobParts, max: number, text: string, next?: RefObject<TextInput | null>) => {
     const digits = text.replace(/\D/g, '').slice(0, max);
     onChange({ ...value, [key]: digits });
     if (digits.length === max) next?.current?.focus();
@@ -31,7 +31,7 @@ export function DobField({ value, onChange, error }: Props) {
         <TextInput
           accessibilityLabel="Day of birth"
           value={value.day}
-          onChangeText={part('day', 2, monthRef)}
+          onChangeText={(t) => handle('day', 2, t, monthRef)}
           placeholder="DD"
           keyboardType="number-pad"
           maxLength={2}
@@ -43,7 +43,7 @@ export function DobField({ value, onChange, error }: Props) {
           ref={monthRef}
           accessibilityLabel="Month of birth"
           value={value.month}
-          onChangeText={part('month', 2, yearRef)}
+          onChangeText={(t) => handle('month', 2, t, yearRef)}
           placeholder="MM"
           keyboardType="number-pad"
           maxLength={2}
@@ -55,7 +55,7 @@ export function DobField({ value, onChange, error }: Props) {
           ref={yearRef}
           accessibilityLabel="Year of birth"
           value={value.year}
-          onChangeText={part('year', 4)}
+          onChangeText={(t) => handle('year', 4, t)}
           placeholder="YYYY"
           keyboardType="number-pad"
           maxLength={4}

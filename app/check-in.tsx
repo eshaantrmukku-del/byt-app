@@ -40,10 +40,13 @@ export default function CheckInScreen() {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
 
-  useEffect(() => {
+  // Today's check-in may arrive after the screen opens; adopt it once.
+  const [shownInitial, setShownInitial] = useState(initial);
+  if (shownInitial !== initial) {
+    setShownInitial(initial);
     setRatings(initial.ratings);
     setNote(initial.note);
-  }, [initial]);
+  }
   useEffect(() => {
     if (done) router.back();
   }, [done]);

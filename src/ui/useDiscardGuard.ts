@@ -1,5 +1,5 @@
-import { usePreventRemove } from '@react-navigation/native';
 import { useNavigation } from 'expo-router';
+import { usePreventRemove } from 'expo-router/react-navigation';
 import { Alert, Platform } from 'react-native';
 
 /**

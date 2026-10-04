@@ -7,12 +7,10 @@
     "icon": "./assets/images/icon.png",
     "scheme": "byt",
     "userInterfaceStyle": "dark",
-    "jsEngine": "hermes",
     "updates": {
       "enabled": false,
       "checkAutomatically": "NEVER"
     },
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
@@ -27,7 +25,6 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false
     },
@@ -48,7 +45,9 @@
             "backgroundColor": "#141414"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

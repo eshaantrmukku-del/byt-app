@@ -1,4 +1,4 @@
-import { DarkTheme, type Theme } from '@react-navigation/native';
+import { DarkTheme, type Theme } from 'expo-router';
 import type { TextStyle } from 'react-native';
 
 export const colors = {

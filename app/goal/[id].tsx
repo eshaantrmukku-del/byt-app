@@ -52,7 +52,12 @@ export default function GoalEditor() {
   const [busy, setBusy] = useState<'save' | 'delete' | null>(null);
   const [done, setDone] = useState(false);
 
-  useEffect(() => setDraft(initial), [initial]);
+  // The goal may load after the screen opens; adopt it once.
+  const [shownInitial, setShownInitial] = useState(initial);
+  if (shownInitial !== initial) {
+    setShownInitial(initial);
+    setDraft(initial);
+  }
   useEffect(() => {
     if (done) router.back();
   }, [done]);
