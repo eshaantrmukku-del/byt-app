@@ -1,50 +1,55 @@
-# Welcome to your Expo app 👋
+# BYT — Build Your Tomorrow
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Private AI coaching app. Expo (SDK 54) + Expo Router, TypeScript (strict), Firebase Auth + Firestore, Zustand.
 
-## Get started
+## Layout
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+app/                    routes (Expo Router)
+  index.tsx             animated splash, routes by session state
+  auth/                 login, sign-up
+  onboarding.tsx        3-step profile intake
+  edit-profile.tsx
+  (tabs)/               Home, Settings
+src/
+  config/env.ts         env schema (EXPO_PUBLIC_FIREBASE_* only)
+  lib/firebase.ts       Firebase init (+ optional emulators)
+  types/models.ts       Firestore data model (schema v2)
+  features/             pure domain logic (profile, auth, session gate)
+  services/             auth, profile, session (cloud-first hydration), write tracking
+  stores/               Zustand: auth, profile, sync
+  ui/                   design system (dark, accent #3B82F6)
+firestore.rules         security rules (owner-only, validated)
+tests/unit              logic tests (vitest)
+tests/rules             rules tests against the Firestore emulator
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Develop
 
-## Learn more
+```bash
+npm install
+cp .env.example .env        # fill in Firebase client config
+npm run start:lan           # Expo Go on the same Wi-Fi
+npm run start:tunnel        # Expo Go from any network
+npm run qr -- qr.png        # QR for the running dev server
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Checks
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npm run verify              # env check + typecheck + lint + unit tests
+npm run test:rules          # Firestore rules in the emulator (needs Java 21+)
+```
 
-## Join the community
+## Deploy Firestore rules
 
-Join our community of developers creating universal apps.
+```bash
+npx firebase login
+npm run deploy:rules        # firestore.rules + indexes → ascend-9d17e
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Safety
+
+- Never run `expo prebuild --clean`: `android/` holds the Play upload keystore.
+- Never put AI/voice provider keys in `EXPO_PUBLIC_*` variables; they belong in backend secrets.
+- Android package `com.LiveYourPotential.myapp` is the live Play Store identity — don't change it.

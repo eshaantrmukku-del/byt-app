@@ -55,3 +55,8 @@ app-example
 .tools/
 .venv*/
 android-build.log
+
+# firebase emulator logs
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

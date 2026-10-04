@@ -18,7 +18,7 @@ web-build/
 .cursor/
 *.tsbuildinfo
 
-# native build outputs (EAS regenerates / uses prebuild as needed)
+# native build outputs
 android/app/build/
 android/build/
 android/.gradle/
@@ -28,7 +28,7 @@ ios/Pods/
 # large local artifacts
 *.apk
 *.aab
-ascend.apk
+android-build.log
 store-assets/
 website/
 expo-dev-qr*.png
@@ -36,14 +36,25 @@ expo-dev-url.txt
 expo-bundle-url.txt
 *.orig.*
 
-# secrets / keys (except .env which the app needs for API keys)
+# tests / tooling not needed in the app binary
+tests/
+firestore-debug.log
+firebase-debug.log
+
+# secrets / keys — never upload. EAS builds get EXPO_PUBLIC_* values from
+# EAS environment variables, not from a local .env file.
+.env
+.env.*
+!.env.example
 *.jks
 *.p8
 *.p12
 *.key
+*.keystore
+!android/app/debug.keystore
+android/keystore.properties
 *.mobileprovision
 *.pem
-.env*.local
 
 # debug / OS
 npm-debug.*
@@ -51,9 +62,3 @@ yarn-debug.*
 yarn-error.*
 .DS_Store
 app-example
-VOICE_CALL_FEATURE.md
-AI_GOAL_CREATION.md
-implementation_plan.md
-
-# Include local env for EAS cloud builds (Firebase / Gemini / Deepgram keys)
-!.env
