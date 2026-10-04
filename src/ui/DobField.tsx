@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     textAlign: 'center',
   },
-  short: { flex: 1 },
-  long: { flex: 1.6 },
+  short: { flex: 1, minWidth: 0 },
+  long: { flex: 1.6, minWidth: 0 },
   invalid: { borderColor: colors.danger },
 });

@@ -18,6 +18,7 @@ export function ListRow({ icon, label, detail, onPress, tone = 'default' }: Prop
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={detail ? `${label}, ${detail}` : label}
       disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
