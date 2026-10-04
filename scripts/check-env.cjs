@@ -1,7 +1,7 @@
 /**
  * Validates .env without printing any values.
  * - required Firebase client keys must be present
- * - provider secrets must never be EXPO_PUBLIC_* (they would ship in the bundle)
+ * - provider secrets must never be EXPO_PUBLIC_* (they would ship in the bundle; --strict fails)
  */
 const fs = require('fs');
 const path = require('path');
@@ -36,10 +36,14 @@ const missing = REQUIRED.filter((k) => !vars[k]);
 const exposed = Object.keys(vars).filter((k) => FORBIDDEN_PUBLIC.test(k) && vars[k]);
 
 if (exposed.length) {
-  console.warn(
-    `check-env: WARNING — ${exposed.join(', ')} ${exposed.length === 1 ? 'is' : 'are'} set as EXPO_PUBLIC_*. ` +
-      'The app does not read them, but remove them from .env: provider keys belong in backend secrets.'
-  );
+  const message =
+    `check-env: ${exposed.join(', ')} ${exposed.length === 1 ? 'is' : 'are'} in .env as EXPO_PUBLIC_*. ` +
+    'In development Expo ships the whole .env to the device, so remove them: provider keys belong in backend secrets.';
+  if (process.argv.includes('--strict')) {
+    console.error(message);
+    process.exit(1);
+  }
+  console.warn(`WARNING — ${message}`);
 }
 if (missing.length) {
   console.error(`check-env: missing ${missing.join(', ')}`);
