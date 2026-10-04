@@ -2,7 +2,10 @@
 set -euo pipefail
 
 REPO="eshaantrmukku-del/byt-website"
+# Primary public URL (GitHub Pages). Custom domain is optional until DNS is connected.
 SITE_URL="https://eshaantrmukku-del.github.io/byt-website/"
+# Optional custom domain — leave empty or set DOMAIN and keep website/CNAME in sync when ready.
+DOMAIN="${DOMAIN:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WORKDIR=$(mktemp -d)
 
@@ -11,6 +14,11 @@ trap cleanup EXIT
 
 echo "→ Preparing site in $WORKDIR"
 cp "$SCRIPT_DIR/index.html" "$WORKDIR/"
+# CNAME is optional; only include if present and DOMAIN is set
+if [[ -n "$DOMAIN" && -f "$SCRIPT_DIR/CNAME" ]]; then
+  cp "$SCRIPT_DIR/CNAME" "$WORKDIR/"
+  echo "  including CNAME for $DOMAIN (optional custom domain)"
+fi
 cp -r "$SCRIPT_DIR/assets" "$WORKDIR/"
 mkdir -p "$WORKDIR/privacy" "$WORKDIR/delete-account"
 cp "$SCRIPT_DIR/privacy/index.html" "$WORKDIR/privacy/"
@@ -31,20 +39,20 @@ else
     --description "BYT (Build Your Tomorrow) — marketing website"
 fi
 
-# Enable GitHub Pages
-gh api -X POST "repos/$REPO/pages" \
-  --input - <<'EOF' 2>/dev/null || \
-gh api -X PUT "repos/$REPO/pages" \
-  --input - <<'EOF'
-{
-  "build_type": "legacy",
-  "source": { "branch": "main", "path": "/" }
-}
-EOF
+# Enable GitHub Pages from main (no custom domain required)
+if [[ -n "$DOMAIN" ]]; then
+  PAGES_JSON=$(printf '{"build_type":"legacy","source":{"branch":"main","path":"/"},"cname":"%s"}' "$DOMAIN")
+else
+  PAGES_JSON='{"build_type":"legacy","source":{"branch":"main","path":"/"}}'
+fi
+gh api -X POST "repos/$REPO/pages" --input - <<<"$PAGES_JSON" 2>/dev/null || \
+gh api -X PUT "repos/$REPO/pages" --input - <<<"$PAGES_JSON" 2>/dev/null || true
 
 echo ""
 echo "✓ Deployed to $SITE_URL"
-echo "  (may take 1–2 minutes to go live)"
+if [[ -n "$DOMAIN" ]]; then
+  echo "  (optional custom domain: https://${DOMAIN}/ — requires DNS)"
+fi
 
 for i in $(seq 1 12); do
   code=$(curl -s -o /dev/null -w "%{http_code}" "$SITE_URL" || echo "000")
@@ -57,4 +65,5 @@ for i in $(seq 1 12); do
   sleep 5
 done
 
-echo "Site pushed — GitHub Pages may still be building. Check: $SITE_URL"
+echo "Site pushed — GitHub Pages may still be building."
+echo "Check: $SITE_URL"

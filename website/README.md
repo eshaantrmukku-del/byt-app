@@ -33,3 +33,12 @@ Or manually:
 gh auth login   # if needed
 gh repo create byt-website --public --source=. --push  # first time only
 ```
+
+### Optional custom domain
+
+`website/CNAME` is optional. When a custom domain (e.g. buildyoutomorrowcoaching.com) is purchased and DNS is pointed at GitHub Pages, copy that CNAME into the deploy bundle and configure DNS:
+
+- **A records** (apex/root `@`): `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
+- **Optional www**: CNAME `www` → `eshaantrmukku-del.github.io`
+
+Until DNS is connected, use the GitHub Pages URLs above as the primary links.

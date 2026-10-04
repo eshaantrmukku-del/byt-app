@@ -1,0 +1,59 @@
+# EAS uses .easignore INSTEAD of .gitignore when present.
+# Keep the archive small; EAS reinstalls dependencies on the build server.
+
+# dependencies / caches
+node_modules/
+.tools/
+.tmp-venv/
+.venv*/
+.expo/
+dist/
+web-build/
+.kotlin/
+.metro-health-check*
+
+# git / IDE
+.git/
+.vscode/
+.cursor/
+*.tsbuildinfo
+
+# native build outputs (EAS regenerates / uses prebuild as needed)
+android/app/build/
+android/build/
+android/.gradle/
+ios/build/
+ios/Pods/
+
+# large local artifacts
+*.apk
+*.aab
+ascend.apk
+store-assets/
+website/
+expo-dev-qr*.png
+expo-dev-url.txt
+expo-bundle-url.txt
+*.orig.*
+
+# secrets / keys (except .env which the app needs for API keys)
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+.env*.local
+
+# debug / OS
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+app-example
+VOICE_CALL_FEATURE.md
+AI_GOAL_CREATION.md
+implementation_plan.md
+
+# Include local env for EAS cloud builds (Firebase / Gemini / Deepgram keys)
+!.env

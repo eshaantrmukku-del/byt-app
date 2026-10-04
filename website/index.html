@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>BYT — Build Your Tomorrow</title>
+    <title>BYT - Build Your Tomorrow</title>
     <meta
       name="description"
-      content="BYT is your personal AI coach for goals, daily check-ins, and reflection. Build Your Tomorrow — one step at a time."
+      content="BYT is your personal AI coach for goals, daily check-ins, and reflection. Build Your Tomorrow - one step at a time."
     />
     <meta name="theme-color" content="#F5F7FB" />
     <link rel="icon" href="assets/favicon.png" type="image/png" />
@@ -151,15 +151,26 @@
         z-index: 0;
       }
 
-      .hero-bg img {
+      .hero-watermark {
         position: absolute;
-        inset: 0;
+        top: 38%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(2rem, 8vw, 5rem);
+        font-size: clamp(18rem, 52vw, 42rem);
+        font-weight: 800;
+        letter-spacing: -0.06em;
+        line-height: 1;
+        color: rgba(15, 23, 42, 0.08);
+        pointer-events: none;
+        user-select: none;
+        z-index: 0;
         width: 100%;
-        height: 100%;
-        object-fit: cover;
-        opacity: 0.35;
-        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, transparent 85%);
-        -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, transparent 85%);
+        max-width: 100vw;
+        padding: 0 0.5rem;
       }
 
       .hero-content {
@@ -1019,15 +1030,18 @@
     </nav>
 
     <header class="hero">
-      <div class="hero-bg">
-        <img src="assets/hero-bg.jpg" alt="" aria-hidden="true" />
+      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="hero-watermark" aria-hidden="true">
+        <span>B</span>
+        <span>Y</span>
+        <span>T</span>
       </div>
       <div class="hero-content reveal">
         <div class="hero-eyebrow">Build Your Tomorrow</div>
         <h1><span>Your coach.<br />Your goals.<br />Your tomorrow.</span></h1>
         <p class="hero-sub">
           You have goals. You know what you should do. But staying consistent, staying honest,
-          and knowing your next step? That's the hard part. BYT is the coach in your pocket —
+          and knowing your next step? That's the hard part. BYT is the coach in your pocket -
           AI guidance, daily check-ins, and progress tracking in one place.
         </p>
         <div class="hero-actions">
@@ -1098,7 +1112,7 @@
         </div>
         <div>
           <div class="stat-value">5 min</div>
-          <div class="stat-label">Daily check-in — that's all it takes</div>
+          <div class="stat-label">Daily check-in - that's all it takes</div>
         </div>
         <div>
           <div class="stat-value">1 app</div>
@@ -1114,19 +1128,19 @@
         <div class="pain-grid">
           <div class="pain-card">
             <p>"I set goals every January and forget them by February."</p>
-            <cite>— The motivation drop-off</cite>
+            <cite>- The motivation drop-off</cite>
           </div>
           <div class="pain-card">
             <p>"I know what I should do. I just can't make myself do it consistently."</p>
-            <cite>— The consistency gap</cite>
+            <cite>- The consistency gap</cite>
           </div>
           <div class="pain-card">
             <p>"I don't want another generic chatbot. I want something that actually knows me."</p>
-            <cite>— The personalization problem</cite>
+            <cite>- The personalization problem</cite>
           </div>
         </div>
         <p class="pain-bridge">
-          BYT was built for exactly this — not to add noise to your life, but to give you
+          BYT was built for exactly this - not to add noise to your life, but to give you
           structure, accountability, and a coach that grows with you.
         </p>
       </div>
@@ -1137,7 +1151,7 @@
         <div class="section-label">Why BYT</div>
         <h2 class="section-title">Coaching that fits your life.</h2>
         <p class="section-desc">
-          Most productivity apps track tasks. BYT tracks <em>you</em> — your energy, your moods,
+          Most productivity apps track tasks. BYT tracks <em>you</em> - your energy, your moods,
           your wins, and the goals that actually matter. It's the difference between checking boxes
           and making real change.
         </p>
@@ -1145,12 +1159,12 @@
           <div class="benefit-card">
             <div class="benefit-icon" style="background: rgba(59,130,246,0.12); color: #2563eb">🎯</div>
             <h3>Goals that stay visible</h3>
-            <p>Set goals, track progress, and watch your dashboard update as you move forward — not just once, but every week.</p>
+            <p>Set goals, track progress, and watch your dashboard update as you move forward - not just once, but every week.</p>
           </div>
           <div class="benefit-card">
             <div class="benefit-icon" style="background: rgba(124,58,237,0.12); color: #7c3aed">🧠</div>
             <h3>A coach that remembers</h3>
-            <p>Your AI coach learns from your profile, check-ins, and goals — so advice gets sharper the more you use it.</p>
+            <p>Your AI coach learns from your profile, check-ins, and goals - so advice gets sharper the more you use it.</p>
           </div>
           <div class="benefit-card">
             <div class="benefit-icon" style="background: rgba(34,211,238,0.12); color: #0891b2">🎙️</div>
@@ -1160,12 +1174,12 @@
           <div class="benefit-card">
             <div class="benefit-icon" style="background: rgba(245,158,11,0.12); color: #d97706">📈</div>
             <h3>Streaks that motivate</h3>
-            <p>Daily check-ins build momentum. Track mood, energy, stress, and sleep — and spot patterns before they become problems.</p>
+            <p>Daily check-ins build momentum. Track mood, energy, stress, and sleep - and spot patterns before they become problems.</p>
           </div>
           <div class="benefit-card">
             <div class="benefit-icon" style="background: rgba(34,197,94,0.12); color: #16a34a">📓</div>
             <h3>Private journal</h3>
-            <p>Capture thoughts, wins, and reflections in your own space. No social feed, no performance — just you and your progress.</p>
+            <p>Capture thoughts, wins, and reflections in your own space. No social feed, no performance - just you and your progress.</p>
           </div>
           <div class="benefit-card">
             <div class="benefit-icon" style="background: rgba(239,68,68,0.1); color: #dc2626">🔒</div>
@@ -1183,7 +1197,7 @@
           <h2 class="section-title">Everything you need to grow.</h2>
           <p class="section-desc">
             BYT isn't another to-do list. It's a coaching companion designed around
-            how real people actually change — one conversation, one check-in, one goal at a time.
+            how real people actually change - one conversation, one check-in, one goal at a time.
             No overwhelm. No guilt. Just a clear path forward.
           </p>
         </div>
@@ -1196,7 +1210,7 @@
             </h2>
             <p class="section-desc">
               Speak with an AI coach that remembers your context, goals, and check-ins.
-              Get thoughtful guidance when you're stuck — or when you just need a push.
+              Get thoughtful guidance when you're stuck - or when you just need a push.
             </p>
             <ul class="feature-bullets">
               <li>Voice and text conversations</li>
@@ -1246,7 +1260,7 @@
             </h2>
             <p class="section-desc">
               Set meaningful goals, track your progress, and capture thoughts in your
-              personal journal — all in one place.
+              personal journal - all in one place.
             </p>
             <ul class="feature-bullets">
               <li>Goal tracking with progress updates</li>
@@ -1258,7 +1272,7 @@
             <div class="feature-card">
               <div class="feature-icon" style="background: rgba(34,211,238,0.16); color: #22d3ee">↗</div>
               <h3>Goals & Journal</h3>
-              <p>Turn intentions into measurable progress — and reflect on the journey.</p>
+              <p>Turn intentions into measurable progress - and reflect on the journey.</p>
             </div>
           </div>
         </div>
@@ -1274,7 +1288,7 @@
           </h2>
           <p class="section-desc">
             Not every moment calls for typing. BYT's voice coaching lets you have real
-            conversations — ask for advice, work through a block, or get accountability
+            conversations - ask for advice, work through a block, or get accountability
             on the go. It's like having a coach on speed dial, without the hourly rate.
           </p>
           <ul class="feature-bullets" style="margin-top: 1.5rem">
@@ -1302,7 +1316,7 @@
           <div class="section-label">Who it's for</div>
           <h2 class="section-title">Whatever you're working toward.</h2>
           <p class="section-desc" style="margin: 0 auto">
-            BYT adapts to your life — whether you're building a career, a habit, or a better mindset.
+            BYT adapts to your life - whether you're building a career, a habit, or a better mindset.
           </p>
         </div>
         <div class="use-grid">
@@ -1339,7 +1353,7 @@
         <div class="section-label">How it works</div>
         <h2 class="section-title">Three steps to your potential.</h2>
         <p class="section-desc" style="margin: 0 auto 3rem">
-          Getting started takes minutes. No complicated setup — just tell BYT who you are,
+          Getting started takes minutes. No complicated setup - just tell BYT who you are,
           what you're working toward, and what gets in your way. Your coach intake personalizes
           everything from day one.
         </p>
@@ -1347,12 +1361,12 @@
           <div class="feature-card">
             <div class="feature-icon" style="background: var(--accent-soft); color: var(--accent)">1</div>
             <h3>Set up your profile</h3>
-            <p>Share your profession, goals, and what you're struggling with. BYT creates a coach profile tailored to you — not a one-size-fits-all bot.</p>
+            <p>Share your profession, goals, and what you're struggling with. BYT creates a coach profile tailored to you - not a one-size-fits-all bot.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon" style="background: var(--accent-soft); color: var(--accent)">2</div>
             <h3>Check in daily</h3>
-            <p>Log your mood, energy, stress, and wins in under five minutes. Streaks build naturally — and your coach uses this context in every conversation.</p>
+            <p>Log your mood, energy, stress, and wins in under five minutes. Streaks build naturally - and your coach uses this context in every conversation.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon" style="background: var(--accent-soft); color: var(--accent)">3</div>
@@ -1370,11 +1384,11 @@
         <div class="faq-list">
           <div class="faq-item">
             <h3>How does pricing work?</h3>
-            <p>BYT includes monthly coaching credits so you can chat with your AI coach regularly. Standard and Plus plans are available in-app — pick what fits how often you want to connect.</p>
+            <p>BYT includes monthly coaching credits on the Beta plan so you can chat with your AI coach regularly.</p>
           </div>
           <div class="faq-item">
             <h3>How is this different from ChatGPT?</h3>
-            <p>Generic AI forgets you between sessions. BYT remembers your goals, check-in history, and coach profile — so every conversation builds on the last. It's coaching software, not a chat window.</p>
+            <p>Generic AI forgets you between sessions. BYT remembers your goals, check-in history, and coach profile - so every conversation builds on the last. It's coaching software, not a chat window.</p>
           </div>
           <div class="faq-item">
             <h3>Is my data private?</h3>
@@ -1382,15 +1396,15 @@
           </div>
           <div class="faq-item">
             <h3>Do I need to check in every single day?</h3>
-            <p>Daily check-ins work best, but life happens. Even a few times a week builds useful patterns — and your coach adapts to whatever rhythm you keep.</p>
+            <p>Daily check-ins work best, but life happens. Even a few times a week builds useful patterns - and your coach adapts to whatever rhythm you keep.</p>
           </div>
           <div class="faq-item">
             <h3>Can I use voice instead of typing?</h3>
-            <p>Absolutely. BYT supports voice coaching for natural, spoken conversations — great for when you're on the move or just don't feel like typing.</p>
+            <p>Absolutely. BYT supports voice coaching for natural, spoken conversations - great for when you're on the move or just don't feel like typing.</p>
           </div>
           <div class="faq-item">
             <h3>Is BYT available on iPhone?</h3>
-            <p>BYT is on Google Play now. iOS is coming soon — stay tuned.</p>
+            <p>BYT is on Google Play now. iOS is coming soon - stay tuned.</p>
           </div>
         </div>
       </div>
@@ -1399,7 +1413,7 @@
     <section class="cta-strip">
       <div class="reveal">
         <h2>Your potential won't wait.<br />Neither should you.</h2>
-        <p>Join BYT today. Set your first goal, complete your first check-in, and talk to your coach — all before bedtime.</p>
+        <p>Join BYT today. Set your first goal, complete your first check-in, and talk to your coach - all before bedtime.</p>
         <a
           class="btn btn-primary play-badge"
           href="https://play.google.com/store/apps/details?id=com.LiveYourPotential.myapp"
@@ -1454,11 +1468,11 @@
       <div class="footer-inner">
         <div class="footer-brand">
           <img src="assets/icon-512.png" alt="" width="24" height="24" />
-          BYT — Build Your Tomorrow
+          BYT - Build Your Tomorrow
         </div>
         <div class="footer-links">
-          <a href="./privacy/">Privacy Policy</a>
-          <a href="./delete-account/">Delete Account</a>
+          <a href="https://eshaantrmukku-del.github.io/byt-website/privacy/">Privacy Policy</a>
+          <a href="https://eshaantrmukku-del.github.io/byt-website/delete-account/">Delete Account</a>
           <a href="mailto:eshaantr.mukku@gmail.com">Contact</a>
         </div>
         <p class="footer-copy">&copy; 2026 Build Your Tomorrow. All rights reserved.</p>

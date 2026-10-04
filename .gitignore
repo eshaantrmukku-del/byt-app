@@ -4,6 +4,9 @@
 node_modules/
 
 # Expo
+expo-dev-qr*.png
+expo-dev-url.txt
+expo-bundle-url.txt
 .expo/
 dist/
 web-build/
@@ -17,6 +20,9 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.keystore
+!android/app/debug.keystore
+android/keystore.properties
 
 # Metro
 .metro-health-check*
@@ -31,6 +37,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
@@ -41,3 +48,10 @@ app-example
 # generated native folders
 /ios
 /android
+
+# local artifacts / tooling (never commit)
+*.apk
+*.aab
+.tools/
+.venv*/
+android-build.log
