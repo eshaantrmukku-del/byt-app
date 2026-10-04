@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 
 import { friendlyError } from '@/features/auth/authErrors';
-import { parseAccount, parseCheckIn, parseGoal, parseJournalEntry } from '@/features/parse';
+import { parseAccount, parseCheckIn, parseConversation, parseGoal, parseJournalEntry } from '@/features/parse';
 import { requireFirebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
 import { useCreditsStore } from '@/stores/creditsStore';
@@ -88,6 +88,7 @@ export function watchUserData(uid: string): () => void {
       query(userCollection(uid, 'journal'), orderBy('date', 'desc'), limit(JOURNAL_PAGE)),
       parseJournalEntry
     ),
+    watch('conversations', userCollection(uid, 'conversations'), parseConversation),
     onSnapshot(
       doc(requireFirebase().db, 'users', uid, 'private', 'account'),
       (snap) => useCreditsStore.getState().setAccount(parseAccount(snap.data())),

@@ -250,26 +250,38 @@ describe('subcollections', () => {
     await assertFails(setDoc(doc(dbFor(BOB), 'users/alice/journal/j3'), entry));
   });
 
-  it('conversations: clients rename only; summaries are server-owned', async () => {
+  it('conversations: clients create and rename; previews and summaries are server-owned', async () => {
     const ref = doc(dbFor(ALICE), 'users/alice/conversations/c1');
-    await assertSucceeds(setDoc(ref, { title: 'First chat', mode: 'normal', ...stamps() }));
-    await assertSucceeds(updateDoc(ref, { title: 'Renamed', updatedAt: serverTimestamp() }));
+    const convo = { title: 'Coaching session', mode: 'normal', titleEdited: false, ...stamps() };
+    await assertSucceeds(setDoc(ref, convo));
+    await assertSucceeds(updateDoc(ref, { title: 'Renamed', titleEdited: true, updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(ref, { title: '', updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(ref, { summary: 'injected', updatedAt: serverTimestamp() }));
-    await assertFails(
-      setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c2'), { title: 'x', mode: 'normal', summary: 's', ...stamps() })
+    await assertFails(updateDoc(ref, { lastMessagePreview: 'x', updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c2'), { ...convo, summary: 's' }));
+    await assertFails(setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c3'), { title: 'x', mode: 'normal', ...stamps() }));
+    await assertSucceeds(
+      setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c4'), {
+        ...convo,
+        mode: 'reflection',
+        reflectionCheckInId: '2026-10-04',
+      })
     );
+    await assertFails(getDoc(doc(dbFor(BOB), 'users/alice/conversations/c1')));
   });
 
-  it('messages: clients write only their own turns, never coach replies or edits', async () => {
-    await seed('users/alice/conversations/c1', { title: 'Chat', mode: 'normal' });
-    const userMsg = { role: 'user', text: 'Hi', clientTurnId: 't1', createdAt: serverTimestamp() };
-    const ref = doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/m1');
-    await assertSucceeds(setDoc(ref, userMsg));
+  it('messages: backend-only writes; owner can read', async () => {
+    await seed('users/alice/conversations/c1', { title: 'Chat', mode: 'normal', titleEdited: false });
+    await seed('users/alice/conversations/c1/messages/r1', { role: 'user', text: 'Hi', clientTurnId: 'r1', channel: 'text' });
+    const userMsg = { role: 'user', text: 'Hi', clientTurnId: 't1', channel: 'text', createdAt: serverTimestamp() };
+    await assertFails(setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/m1'), userMsg));
     await assertFails(
       setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/m2'), { ...userMsg, role: 'coach' })
     );
-    await assertFails(updateDoc(ref, { text: 'edited' }));
-    await assertFails(getDoc(doc(dbFor(BOB), 'users/alice/conversations/c1/messages/m1')));
+    await assertFails(updateDoc(doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/r1'), { text: 'edited' }));
+    await assertSucceeds(getDoc(doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/r1')));
+    await assertSucceeds(getDocs(collection(dbFor(ALICE), 'users/alice/conversations/c1/messages')));
+    await assertFails(getDoc(doc(dbFor(BOB), 'users/alice/conversations/c1/messages/r1')));
   });
 
   it('private/account and turns are read-only for the owner', async () => {

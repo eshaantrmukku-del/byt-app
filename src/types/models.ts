@@ -5,8 +5,8 @@
  *   users/{uid}/goals/{goalId}                      GoalDoc               client-writable
  *   users/{uid}/checkIns/{YYYY-MM-DD}               CheckInDoc            client-writable, one per day
  *   users/{uid}/journal/{entryId}                   JournalEntryDoc       client-writable
- *   users/{uid}/conversations/{cid}                 ConversationDoc       client-writable (title only after create)
- *   users/{uid}/conversations/{cid}/messages/{mid}  MessageDoc            client creates role "user" only
+ *   users/{uid}/conversations/{cid}                 ConversationDoc       client creates; afterwards client may only rename
+ *   users/{uid}/conversations/{cid}/messages/{mid}  MessageDoc            backend-only (see internal/coach-api-contract.md)
  *   users/{uid}/private/account                     AccountDoc            server-only (plan + credits)
  *   users/{uid}/turns/{clientTurnId}                TurnDoc               server-only (credit idempotency)
  *
@@ -112,19 +112,26 @@ export type ConversationDoc = {
   title: string;
   mode: ConversationMode;
   reflectionCheckInId?: IsoDate;
-  /** Rolling summary, written by the backend only. */
+  /** True once the user renames it; stops automatic titles from the first message. */
+  titleEdited: boolean;
+  /** Written by the backend only. */
   summary?: string;
+  lastMessagePreview?: string;
+  lastMessageAt?: ServerTime;
   createdAt: ServerTime;
   updatedAt: ServerTime;
 };
 
 export type MessageRole = 'user' | 'coach';
+export type MessageChannel = 'text' | 'voice';
 
+/** Written by the backend only: `{requestId}` for the user turn, `{requestId}_reply` for the coach. */
 export type MessageDoc = {
   role: MessageRole;
   text: string;
-  /** Client-generated id shared with the backend turn, used for idempotent credit charging. */
+  /** Client-generated request id shared with the backend turn (idempotent credit charging). */
   clientTurnId: string;
+  channel: MessageChannel;
   createdAt: ServerTime;
 };
 
@@ -162,3 +169,23 @@ export type CheckIn = Omit<CheckInDoc, 'createdAt' | 'updatedAt'> & Timestamps &
 export type JournalEntry = { id: string; date: IsoDate; text: string } & Timestamps;
 
 export type Account = Pick<AccountDoc, 'plan' | 'creditsRemaining' | 'creditsPeriodKey'>;
+
+export type Conversation = {
+  id: string;
+  title: string;
+  mode: ConversationMode;
+  reflectionCheckInId?: IsoDate;
+  titleEdited: boolean;
+  lastMessagePreview: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type ChatMessage = {
+  id: string;
+  role: MessageRole;
+  text: string;
+  clientTurnId: string;
+  channel: MessageChannel;
+  createdAt: number;
+};

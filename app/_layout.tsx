@@ -35,6 +35,9 @@ export default function RootLayout() {
           <Stack.Screen name="edit-profile" options={{ animation: 'default' }} />
           <Stack.Screen name="check-in" options={{ animation: 'default' }} />
           <Stack.Screen name="journal" options={{ animation: 'default' }} />
+          <Stack.Screen name="ai-coach" options={{ animation: 'default' }} />
+          <Stack.Screen name="chats" options={{ animation: 'default' }} />
+          <Stack.Screen name="voice-call" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
         </Stack.Protected>
         <Stack.Screen name="privacy" options={{ animation: 'default' }} />
         <Stack.Screen name="+not-found" />

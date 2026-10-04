@@ -143,9 +143,10 @@ service cloud.firestore {
 
       // ---------- Conversations ----------
       function validConversationCreate(d) {
-        return d.keys().hasAll(['title', 'mode', 'createdAt', 'updatedAt'])
-          && d.keys().hasOnly(['title', 'mode', 'reflectionCheckInId', 'createdAt', 'updatedAt'])
-          && isText(d.title, 0, 120)
+        return d.keys().hasAll(['title', 'mode', 'titleEdited', 'createdAt', 'updatedAt'])
+          && d.keys().hasOnly(['title', 'mode', 'reflectionCheckInId', 'titleEdited', 'createdAt', 'updatedAt'])
+          && isText(d.title, 1, 120)
+          && d.titleEdited is bool
           && d.mode in ['normal', 'reflection']
           && (!('reflectionCheckInId' in d) || isIsoDate(d.reflectionCheckInId))
           && stampedOnCreate(d);
@@ -154,24 +155,18 @@ service cloud.firestore {
       match /conversations/{conversationId} {
         allow read: if isOwner(uid);
         allow create: if isOwner(uid) && validConversationCreate(request.resource.data);
-        // Clients may rename; summaries and everything else are written by the backend.
+        // Clients may rename; previews, summaries and everything else are written by the backend.
         allow update: if isOwner(uid)
-          && changed().hasOnly(['title', 'updatedAt'])
-          && isText(request.resource.data.title, 0, 120)
+          && changed().hasOnly(['title', 'titleEdited', 'updatedAt'])
+          && isText(request.resource.data.title, 1, 120)
+          && request.resource.data.titleEdited is bool
           && request.resource.data.updatedAt == request.time;
         allow delete: if isOwner(uid);
 
         match /messages/{messageId} {
           allow read: if isOwner(uid);
-          // Clients only ever write their own turns; coach replies come from the backend.
-          allow create: if isOwner(uid)
-            && request.resource.data.keys().hasAll(['role', 'text', 'clientTurnId', 'createdAt'])
-            && request.resource.data.keys().hasOnly(['role', 'text', 'clientTurnId', 'createdAt'])
-            && request.resource.data.role == 'user'
-            && isText(request.resource.data.text, 1, 4000)
-            && isText(request.resource.data.clientTurnId, 1, 64)
-            && request.resource.data.createdAt == request.time;
-          allow update: if false;
+          // Both sides of every turn are written by the backend (coachTurn / voiceTurn).
+          allow create, update: if false;
           allow delete: if isOwner(uid);
         }
       }

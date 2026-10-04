@@ -2,7 +2,9 @@ import {
   GOAL_CATEGORIES,
   GOAL_STATUSES,
   type Account,
+  type ChatMessage,
   type CheckIn,
+  type Conversation,
   type Goal,
   type GoalCategory,
   type GoalStatus,
@@ -59,6 +61,34 @@ export function parseJournalEntry(id: string, d: Data): JournalEntry | null {
   const createdAt = toMillis(d.createdAt);
   const date = isIsoDate(d.date) ? d.date : new Date(createdAt).toISOString().slice(0, 10);
   return { id, date, text, createdAt, updatedAt: toMillis(d.updatedAt, createdAt) };
+}
+
+export function parseConversation(id: string, d: Data): Conversation {
+  const mode = d.mode === 'reflection' ? 'reflection' : 'normal';
+  const createdAt = toMillis(d.createdAt);
+  return {
+    id,
+    title: str(d.title) || (mode === 'reflection' ? 'Reflection discussion' : 'Coaching session'),
+    mode,
+    ...(isIsoDate(d.reflectionCheckInId) ? { reflectionCheckInId: d.reflectionCheckInId } : {}),
+    titleEdited: d.titleEdited === true,
+    lastMessagePreview: str(d.lastMessagePreview),
+    createdAt,
+    updatedAt: Math.max(toMillis(d.updatedAt, createdAt), toMillis(d.lastMessageAt, 0)),
+  };
+}
+
+export function parseMessage(id: string, d: Data): ChatMessage | null {
+  const text = str(d.text);
+  if (!text || (d.role !== 'user' && d.role !== 'coach')) return null;
+  return {
+    id,
+    role: d.role,
+    text,
+    clientTurnId: str(d.clientTurnId) || id,
+    channel: d.channel === 'voice' ? 'voice' : 'text',
+    createdAt: toMillis(d.createdAt),
+  };
 }
 
 export function parseAccount(d: Data | undefined): Account | null {

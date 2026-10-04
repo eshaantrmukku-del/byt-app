@@ -47,7 +47,13 @@
         }
       ],
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "BYT uses the microphone so you can talk with your coach."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

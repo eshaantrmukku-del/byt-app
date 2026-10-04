@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { CheckIn, Goal, JournalEntry } from '@/types/models';
+import type { CheckIn, Conversation, Goal, JournalEntry } from '@/types/models';
 
 /**
  * - loading: waiting for the first answer from the server
@@ -11,9 +11,9 @@ export type CollectionStatus = 'idle' | 'loading' | 'ready' | 'unavailable';
 
 export type CollectionState<T> = { status: CollectionStatus; items: T[]; error: string | null };
 
-export type CollectionKey = 'goals' | 'checkIns' | 'journal';
+export type CollectionKey = 'goals' | 'checkIns' | 'journal' | 'conversations';
 
-type Items = { goals: Goal; checkIns: CheckIn; journal: JournalEntry };
+type Items = { goals: Goal; checkIns: CheckIn; journal: JournalEntry; conversations: Conversation };
 
 type UserDataState = { uid: string | null } & { [K in CollectionKey]: CollectionState<Items[K]> } & {
   begin: (uid: string) => void;
@@ -29,6 +29,7 @@ const initial = (uid: string | null, status: CollectionStatus) => ({
   goals: empty<Goal>(status),
   checkIns: empty<CheckIn>(status),
   journal: empty<JournalEntry>(status),
+  conversations: empty<Conversation>(status),
 });
 
 export const useUserDataStore = create<UserDataState>()((set, get) => ({

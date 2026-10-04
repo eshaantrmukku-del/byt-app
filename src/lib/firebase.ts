@@ -8,11 +8,15 @@ import {
   type Persistence,
 } from 'firebase/auth';
 import { connectFirestoreEmulator, getFirestore, type Firestore } from 'firebase/firestore';
+import { connectFunctionsEmulator, getFunctions, type Functions } from 'firebase/functions';
 import { Platform } from 'react-native';
 
 import { env } from '@/config/env';
 
-export type FirebaseServices = { app: FirebaseApp; auth: Auth; db: Firestore };
+/** Region of the coachTurn / voiceTurn callables (see internal/coach-api-contract.md). */
+export const FUNCTIONS_REGION = 'europe-west2';
+
+export type FirebaseServices = { app: FirebaseApp; auth: Auth; db: Firestore; functions: Functions };
 
 function createNativeAuth(app: FirebaseApp): Auth {
   // getReactNativePersistence only exists in the React Native build of firebase/auth,
@@ -38,12 +42,14 @@ function init(): FirebaseServices | null {
   const app = isFirstInit ? initializeApp(env.firebase) : getApp();
   const auth = Platform.OS === 'web' ? getAuth(app) : createNativeAuth(app);
   const db = getFirestore(app);
+  const functions = getFunctions(app, FUNCTIONS_REGION);
 
   if (env.emulator && isFirstInit) {
     connectAuthEmulator(auth, `http://${env.emulator.host}:9099`, { disableWarnings: true });
     connectFirestoreEmulator(db, env.emulator.host, 8080);
+    connectFunctionsEmulator(functions, env.emulator.host, 5001);
   }
-  return { app, auth, db };
+  return { app, auth, db, functions };
 }
 
 export const firebase = init();

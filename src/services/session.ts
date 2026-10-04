@@ -7,6 +7,7 @@ import type { Identity } from '@/features/profile/profileDoc';
 import { firebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
+import { useChatStore } from '@/stores/chatStore';
 import { useCreditsStore } from '@/stores/creditsStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useUserDataStore } from '@/stores/userDataStore';
@@ -112,6 +113,7 @@ export function clearUserState() {
   useProfileStore.getState().reset();
   useUserDataStore.getState().reset();
   useCreditsStore.getState().reset();
+  useChatStore.getState().reset();
   useSyncStore.getState().reset();
 }
 
