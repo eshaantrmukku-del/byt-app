@@ -120,7 +120,10 @@ export default function CheckInScreen() {
             low={scale.low}
             high={scale.high}
             value={ratings[scale.key]}
-            onChange={(v) => setRatings((r) => ({ ...r, [scale.key]: v }))}
+            onChange={(v) => {
+              setRatings((r) => ({ ...r, [scale.key]: v }));
+              setError(null);
+            }}
           />
         ))}
 

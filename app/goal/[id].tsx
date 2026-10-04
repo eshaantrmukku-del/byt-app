@@ -60,7 +60,10 @@ export default function GoalEditor() {
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
   useDiscardGuard(dirty && !done);
 
-  const set = <K extends keyof GoalDraft>(key: K, value: GoalDraft[K]) => setDraft((d) => ({ ...d, [key]: value }));
+  const set = <K extends keyof GoalDraft>(key: K, value: GoalDraft[K]) => {
+    setDraft((d) => ({ ...d, [key]: value }));
+    setError(null);
+  };
 
   if (!isNew && !goal) {
     return (
@@ -161,25 +164,30 @@ export default function GoalEditor() {
             <AppText variant="bodyStrong">{draft.progress}%</AppText>
           </View>
           <ProgressBar value={draft.progress} muted={draft.status === 'paused'} />
-          <View style={styles.stepper}>
-            <Button
-              label="−10"
-              variant="secondary"
-              onPress={() => set('progress', normaliseProgress(draft.progress - 10))}
-              style={styles.stepButton}
-            />
+          <View style={styles.row}>
             {PROGRESS_STEPS.map((p) => (
               <Chip
                 key={p}
-                label={`${p}`}
+                label={`${p}%`}
                 accessibilityLabel={`Set progress to ${p}%`}
                 selected={draft.progress === p}
                 onPress={() => set('progress', p)}
+                style={styles.presetChip}
               />
             ))}
+          </View>
+          <View style={styles.row}>
             <Button
-              label="+10"
+              label="−10%"
               variant="secondary"
+              accessibilityHint="Decrease progress by 10"
+              onPress={() => set('progress', normaliseProgress(draft.progress - 10))}
+              style={styles.stepButton}
+            />
+            <Button
+              label="+10%"
+              variant="secondary"
+              accessibilityHint="Increase progress by 10"
               onPress={() => set('progress', normaliseProgress(draft.progress + 10))}
               style={styles.stepButton}
             />
@@ -209,7 +217,8 @@ const styles = StyleSheet.create({
   group: { gap: space.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  stepper: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
-  stepButton: { minHeight: 36, paddingHorizontal: space.md, borderRadius: radius.pill, backgroundColor: colors.surface },
+  row: { flexDirection: 'row', gap: space.sm },
+  presetChip: { flex: 1, minWidth: 0, alignItems: 'center', paddingHorizontal: 0 },
+  stepButton: { flex: 1, minHeight: 40, borderRadius: radius.pill, backgroundColor: colors.surface },
   segment: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
 });
