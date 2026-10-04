@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import { friendlyError } from '@/features/auth/authErrors';
 import { draftFromProfile, resolveDraft, type ProfileDraft } from '@/features/profile/draft';
@@ -9,7 +8,7 @@ import { diffProfileFields, EMPTY_PROFILE_FIELDS, PROFILE_FIELD_KEYS } from '@/f
 import { hasErrors, PROFILE_LIMITS, type ProfileErrors } from '@/features/profile/validation';
 import { saveProfileChanges } from '@/services/profileService';
 import { useProfileStore } from '@/stores/profileStore';
-import { AppText, Banner, Button, colors, DobField, Screen, space, TextField } from '@/ui';
+import { AppText, Banner, Button, DobField, Screen, ScreenHeader, space, TextField, useDiscardGuard } from '@/ui';
 
 export default function EditProfile() {
   const profile = useProfileStore((s) => s.profile);
@@ -19,18 +18,15 @@ export default function EditProfile() {
   const [errors, setErrors] = useState<ProfileErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
+  useDiscardGuard(dirty && !done);
+  useEffect(() => {
+    if (done) router.back();
+  }, [done]);
   const set = <K extends keyof ProfileDraft>(key: K) => (value: ProfileDraft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
-
-  const close = () => {
-    if (!dirty || saving) return router.back();
-    Alert.alert('Discard changes?', 'Your edits haven’t been saved.', [
-      { text: 'Keep editing', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => router.back() },
-    ]);
-  };
 
   const onSave = async () => {
     if (!uid || !profile) return;
@@ -46,7 +42,7 @@ export default function EditProfile() {
       if (outcome === 'pending') {
         Alert.alert('Saved on this device', 'Your changes will sync when you’re back online.');
       }
-      router.back();
+      setDone(true);
     } catch (e) {
       setSaveError(friendlyError(e, 'We couldn’t save your changes. Please try again.'));
       setSaving(false);
@@ -55,13 +51,7 @@ export default function EditProfile() {
 
   return (
     <Screen scroll footer={<Button label="Save changes" onPress={onSave} loading={saving} disabled={!dirty} />}>
-      <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={close} hitSlop={12}>
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
-        <AppText variant="heading">Edit profile</AppText>
-        <View style={styles.headerSpacer} />
-      </View>
+      <ScreenHeader title="Edit profile" />
 
       <AppText tone="secondary" style={styles.intro}>
         Your coach uses this as quiet background context.
@@ -138,8 +128,6 @@ export default function EditProfile() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headerSpacer: { width: 26 },
   intro: { marginTop: space.lg },
   form: { marginTop: space.xl, gap: space.xl },
 });

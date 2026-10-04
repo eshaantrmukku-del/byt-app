@@ -1,17 +1,33 @@
 import Constants from 'expo-constants';
+import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 
+import { ACCOUNT_DELETION_MAILTO, PRIVACY_CONTACT_EMAIL } from '@/content/privacyPolicy';
 import { friendlyError } from '@/features/auth/authErrors';
 import { logOut } from '@/services/authService';
+import { useCreditsStore } from '@/stores/creditsStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSyncStore } from '@/stores/syncStore';
+import { MONTHLY_CREDIT_ALLOWANCE } from '@/types/models';
 import { AppText, Banner, Button, colors, ListRow, radius, Screen, space } from '@/ui';
 
 export default function Settings() {
   const profile = useProfileStore((s) => s.profile);
   const syncError = useSyncStore((s) => s.lastError);
+  const account = useCreditsStore((s) => s.account);
+  const creditsDetail = account
+    ? `${account.creditsRemaining} of ${MONTHLY_CREDIT_ALLOWANCE} coaching messages left this month`
+    : `${MONTHLY_CREDIT_ALLOWANCE} coaching messages a month. Your balance appears once your coach is live.`;
+
+  const requestDeletion = async () => {
+    try {
+      await Linking.openURL(ACCOUNT_DELETION_MAILTO);
+    } catch {
+      Alert.alert('Request account deletion', `Email ${PRIVACY_CONTACT_EMAIL} from your account email.`);
+    }
+  };
   const [loggingOut, setLoggingOut] = useState(false);
 
   const runLogout = async (force: boolean) => {
@@ -60,10 +76,20 @@ export default function Settings() {
         Plan
       </AppText>
       <View style={styles.group}>
+        <ListRow icon="sparkles-outline" label="BYT Beta" detail={creditsDetail} />
+      </View>
+
+      <AppText variant="overline" tone="muted" style={styles.sectionLabel}>
+        Privacy & data
+      </AppText>
+      <View style={styles.group}>
+        <ListRow icon="shield-checkmark-outline" label="Privacy" onPress={() => router.push('/privacy')} />
+        <View style={styles.divider} />
         <ListRow
-          icon="sparkles-outline"
-          label="BYT Beta"
-          detail="Coaching credits will show here once your coach is live."
+          icon="trash-outline"
+          label="Request account deletion"
+          detail={`Opens an email to ${PRIVACY_CONTACT_EMAIL}`}
+          onPress={() => void requestDeletion()}
         />
       </View>
 

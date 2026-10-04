@@ -104,7 +104,10 @@ export default function SignUp() {
           error={errors.password}
         />
         <AppText variant="caption" tone="muted">
-          Your conversations and profile are private to your account.
+          Your conversations and profile are private to your account.{' '}
+          <AppText variant="caption" tone="accent" accessibilityRole="link" onPress={() => router.push('/privacy')}>
+            How BYT handles your data
+          </AppText>
         </AppText>
       </View>
     </Screen>

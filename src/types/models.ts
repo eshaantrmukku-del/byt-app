@@ -134,3 +134,16 @@ export type TurnDoc = {
 };
 
 export const MONTHLY_CREDIT_ALLOWANCE = 150;
+
+// ---------- App-state shapes (timestamps as epoch ms) ----------
+
+type Timestamps = { createdAt: number; updatedAt: number };
+
+export type Goal = Omit<GoalDoc, 'createdAt' | 'updatedAt'> & Timestamps & { id: string };
+
+/** `id` is the check-in's date (YYYY-MM-DD). */
+export type CheckIn = Omit<CheckInDoc, 'createdAt' | 'updatedAt'> & Timestamps & { id: IsoDate };
+
+export type JournalEntry = { id: string; date: IsoDate; text: string } & Timestamps;
+
+export type Account = Pick<AccountDoc, 'plan' | 'creditsRemaining' | 'creditsPeriodKey'>;

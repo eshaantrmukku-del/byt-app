@@ -8,10 +8,8 @@ import {
 
 import { requireFirebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
-import { useProfileStore } from '@/stores/profileStore';
-import { useSyncStore } from '@/stores/syncStore';
 
-import { rememberSignUpName, stopProfileWatch } from './session';
+import { clearUserState, rememberSignUpName, stopUserWatches } from './session';
 import { flushPendingWrites } from './writes';
 
 /**
@@ -50,10 +48,9 @@ export async function logOut(options: { force?: boolean } = {}): Promise<LogOutR
 
   useAuthStore.getState().setSigningOut(true);
   try {
-    stopProfileWatch();
+    stopUserWatches();
     await signOut(auth);
-    useProfileStore.getState().reset();
-    useSyncStore.getState().reset();
+    clearUserState();
   } finally {
     useAuthStore.getState().setSigningOut(false);
   }

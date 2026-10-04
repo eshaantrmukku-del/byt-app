@@ -7,9 +7,12 @@ import type { Identity } from '@/features/profile/profileDoc';
 import { firebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
+import { useCreditsStore } from '@/stores/creditsStore';
 import { useSyncStore } from '@/stores/syncStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 
 import { createProfileIfAbsent, profileRef, upgradeLegacyProfile } from './profileService';
+import { watchUserData } from './userDataService';
 
 const PROFILE_TIMEOUT_MS = 15_000;
 const OFFLINE_MESSAGE = 'Can’t reach BYT right now. Check your connection and try again.';
@@ -87,8 +90,29 @@ function watchProfile(user: User) {
   };
 }
 
-export function stopProfileWatch() {
+let stopData: (() => void) | null = null;
+
+/** Re-subscribes to goals, check-ins and journal after a listener error. */
+export function retryUserData() {
+  const user = firebase?.auth.currentUser;
+  if (!user) return;
+  stopData?.();
+  stopData = watchUserData(user.uid);
+}
+
+/** Stops every Firestore listener for the signed-in user. */
+export function stopUserWatches() {
   stopProfile?.();
+  stopData?.();
+  stopData = null;
+}
+
+/** Clears all user-scoped state so nothing carries over to the next account. */
+export function clearUserState() {
+  useProfileStore.getState().reset();
+  useUserDataStore.getState().reset();
+  useCreditsStore.getState().reset();
+  useSyncStore.getState().reset();
 }
 
 /** Re-subscribes to the profile after an error (the old listener is dead by then). */
@@ -104,18 +128,18 @@ export function startSession(): () => void {
     return () => {};
   }
   const unsubscribeAuth = onAuthStateChanged(firebase.auth, (user) => {
-    stopProfileWatch();
+    stopUserWatches();
     if (!user) {
-      useProfileStore.getState().reset();
-      useSyncStore.getState().reset();
+      clearUserState();
       useAuthStore.getState().setUser(null);
       return;
     }
     useAuthStore.getState().setUser({ uid: user.uid, email: user.email ?? '', displayName: user.displayName });
     watchProfile(user);
+    stopData = watchUserData(user.uid);
   });
   return () => {
     unsubscribeAuth();
-    stopProfileWatch();
+    stopUserWatches();
   };
 }

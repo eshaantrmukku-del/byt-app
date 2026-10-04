@@ -7,6 +7,7 @@ import {
 import {
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -201,6 +202,34 @@ describe('subcollections', () => {
     await assertFails(
       setDoc(doc(dbFor(ALICE), 'users/alice/checkIns/today'), { ...checkIn, date: 'today' })
     );
+  });
+
+  it('updates keep createdAt; re-creating an existing check-in is rejected', async () => {
+    const ref = doc(dbFor(ALICE), 'users/alice/checkIns/2026-10-04');
+    await assertSucceeds(
+      setDoc(ref, { date: '2026-10-04', mood: 3, energy: 3, stress: 3, sleep: 3, note: 'hi', ...stamps() })
+    );
+    await assertSucceeds(updateDoc(ref, { mood: 5, note: deleteField(), updatedAt: serverTimestamp() }));
+    await assertFails(setDoc(ref, { date: '2026-10-04', mood: 4, energy: 3, stress: 3, sleep: 3, ...stamps() }));
+    await assertFails(updateDoc(ref, { mood: 4 }));
+
+    const goal = doc(dbFor(ALICE), 'users/alice/goals/g1');
+    await assertSucceeds(setDoc(goal, { title: 'Run', category: 'health', status: 'active', progress: 0, ...stamps() }));
+    await assertSucceeds(updateDoc(goal, { progress: 60, status: 'paused', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(goal, { progress: 60.5, updatedAt: serverTimestamp() }));
+
+    const entry = doc(dbFor(ALICE), 'users/alice/journal/j1');
+    await assertSucceeds(setDoc(entry, { date: '2026-10-04', text: 'First', ...stamps() }));
+    await assertSucceeds(updateDoc(entry, { text: 'Edited', updatedAt: serverTimestamp() }));
+    await assertFails(updateDoc(entry, { text: '', updatedAt: serverTimestamp() }));
+    await assertSucceeds(deleteDoc(entry));
+  });
+
+  it('owner can list their own collections but not someone else’s', async () => {
+    await seed('users/alice/goals/g1', { title: 'x' });
+    await assertSucceeds(getDocs(collection(dbFor(ALICE), 'users/alice/goals')));
+    await assertFails(getDocs(collection(dbFor(BOB), 'users/alice/goals')));
+    await assertFails(getDocs(collection(dbFor(null), 'users/alice/journal')));
   });
 
   it('journal: text required', async () => {
