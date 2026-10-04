@@ -6,14 +6,25 @@
  * Without a URL, asks Metro (localhost:8081) for its manifest and uses the
  * host it advertises (LAN IP or tunnel hostname).
  */
+const os = require('os');
 const path = require('path');
 const QRCode = require('qrcode');
 
 const out = path.resolve(process.argv[2] || 'expo-dev-qr.png');
 const port = process.env.METRO_PORT || '8081';
 
+function lanAddress() {
+  for (const nets of Object.values(os.networkInterfaces())) {
+    for (const net of nets || []) {
+      if (net.family === 'IPv4' && !net.internal) return net.address;
+    }
+  }
+  return '127.0.0.1';
+}
+
 async function urlFromMetro() {
-  const res = await fetch(`http://127.0.0.1:${port}`, {
+  // In LAN mode Metro echoes the host it was asked on, so ask on the LAN address.
+  const res = await fetch(`http://${lanAddress()}:${port}`, {
     headers: { Accept: 'application/expo+json,application/json', 'Expo-Platform': 'android' },
   });
   if (!res.ok) throw new Error(`Metro returned ${res.status}. Is the dev server running on port ${port}?`);
