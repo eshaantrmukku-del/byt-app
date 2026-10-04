@@ -1,262 +1,123 @@
-import { getAuthTheme } from '@/constants/theme';
-import { auth, isFirebaseConfigured } from '@/services/firebase';
-import { useStore, withSuppressedProfileFlush } from '@/store/useStore';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { ArrowRight, Lock, Mail, Sparkles } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { useRef, useState } from 'react';
+import { StyleSheet, TextInput, View } from 'react-native';
+
+import { friendlyError, validateEmail } from '@/features/auth/authErrors';
+import { logIn, requestPasswordReset } from '@/services/authService';
+import { AppText, Banner, Button, Logo, Screen, space, TextField } from '@/ui';
 
 export default function Login() {
-  const router = useRouter();
-  const authTheme = getAuthTheme();
-  const styles = useMemo(() => createStyles(authTheme), [authTheme]);
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login } = useStore();
+  const [busy, setBusy] = useState<'login' | 'reset' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const passwordRef = useRef<TextInput>(null);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Missing Fields', 'Please fill in all fields.');
-      return;
-    }
-
-    setIsLoading(true);
+  const onLogin = async () => {
+    setNotice(null);
+    const emailError = validateEmail(email);
+    if (emailError) return setError(emailError);
+    if (!password) return setError('Enter your password.');
+    setError(null);
+    setBusy('login');
     try {
-      if (!auth || !isFirebaseConfigured) {
-        Alert.alert(
-          'Firebase not configured',
-          'Add your EXPO_PUBLIC_FIREBASE_* keys to the project .env file, restart Expo, then try again.'
-        );
-        return;
+      await logIn(email, password);
+      // The root layout moves on once the account has loaded.
+    } catch (e) {
+      setError(friendlyError(e));
+      setBusy(null);
+    }
+  };
+
+  const onForgot = async () => {
+    setNotice(null);
+    const emailError = validateEmail(email);
+    if (emailError) return setError('Enter your email above, then tap “Forgot password?” again.');
+    setError(null);
+    setBusy('reset');
+    try {
+      await requestPasswordReset(email);
+      setNotice('If an account exists for that email, a reset link is on its way.');
+    } catch (e) {
+      const message = friendlyError(e);
+      // Don't reveal whether an account exists.
+      if (message === friendlyError({ code: 'auth/user-not-found' })) {
+        setNotice('If an account exists for that email, a reset link is on its way.');
+      } else {
+        setError(message);
       }
-      const credentials = await signInWithEmailAndPassword(auth, email.trim(), password);
-      const firebaseUser = credentials.user;
-      const name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User';
-      withSuppressedProfileFlush(() => {
-        login(name, firebaseUser.email || email.trim(), firebaseUser.uid);
-      });
-      router.replace('/');
-    } catch (error: any) {
-      Alert.alert('Login Failed', error.message || 'An error occurred.');
     } finally {
-      setIsLoading(false);
+      setBusy(null);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={authTheme.gradient} style={styles.background} />
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-          style={styles.keyboardView}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
-            <View style={styles.content}>
-              <View style={styles.header}>
-                <View style={styles.iconContainer}>
-                  <Sparkles size={32} color={authTheme.linkHighlight} />
-                </View>
-                <Text style={styles.title}>Welcome Back</Text>
-                <Text style={styles.subtitle}>Sign in to continue your ascent.</Text>
-              </View>
+    <Screen
+      scroll
+      footer={
+        <>
+          <Button label="Log in" onPress={onLogin} loading={busy === 'login'} disabled={busy !== null} />
+          <Button
+            label="New to BYT? Create an account"
+            variant="ghost"
+            onPress={() => router.replace('/auth/signup')}
+            disabled={busy !== null}
+          />
+        </>
+      }
+    >
+      <View style={styles.header}>
+        <Logo size={40} />
+        <View style={styles.titles}>
+          <AppText variant="title">Welcome back</AppText>
+          <AppText tone="secondary">Pick up where you left off.</AppText>
+        </View>
+      </View>
 
-              <View style={styles.form}>
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputIcon}>
-                    <Mail size={20} color={authTheme.iconMuted} />
-                  </View>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email Address"
-                    placeholderTextColor={authTheme.iconMuted}
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <View style={styles.inputIcon}>
-                    <Lock size={20} color={authTheme.iconMuted} />
-                  </View>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    placeholderTextColor={authTheme.iconMuted}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                  />
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleLogin}
-                  style={[styles.button, isLoading && { opacity: 0.7 }]}
-                  activeOpacity={0.8}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <>
-                      <Text style={styles.buttonText}>Log In</Text>
-                      <ArrowRight size={20} color="#FFF" />
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => router.push('/auth/signup')} style={styles.linkContainer}>
-                  <Text style={styles.linkText}>
-                    Don&apos;t have an account? <Text style={styles.linkHighlight}>Sign up</Text>
-                  </Text>
-                </TouchableOpacity>
-
-                <Text style={styles.switchAccountHint}>
-                  Logged out from another account? Use your email above to sign in here.
-                </Text>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </View>
+      <View style={styles.form}>
+        {error ? <Banner message={error} /> : null}
+        {notice ? <Banner tone="info" message={notice} /> : null}
+        <TextField
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
+        />
+        <TextField
+          ref={passwordRef}
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Your password"
+          secureTextEntry
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={onLogin}
+        />
+        <Button
+          label="Forgot password?"
+          variant="ghost"
+          onPress={onForgot}
+          loading={busy === 'reset'}
+          disabled={busy !== null}
+          style={styles.forgot}
+        />
+      </View>
+    </Screen>
   );
 }
 
-function createStyles(authTheme: ReturnType<typeof getAuthTheme>) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: authTheme.container,
-    },
-    background: {
-      ...StyleSheet.absoluteFillObject,
-    },
-    safeArea: {
-      flex: 1,
-    },
-    keyboardView: {
-      flex: 1,
-    },
-    scrollContent: {
-      flexGrow: 1,
-      justifyContent: 'center',
-      paddingVertical: 24,
-    },
-    content: {
-      paddingHorizontal: 24,
-    },
-    header: {
-      alignItems: 'center',
-      marginBottom: 48,
-    },
-    iconContainer: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: authTheme.iconBoxBg,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 24,
-      borderWidth: 1,
-      borderColor: authTheme.iconBoxBorder,
-    },
-    title: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      color: authTheme.title,
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 16,
-      color: authTheme.subtitle,
-      textAlign: 'center',
-    },
-    form: {
-      gap: 16,
-    },
-    inputGroup: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: authTheme.inputBg,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: authTheme.inputBorder,
-      height: 56,
-    },
-    inputIcon: {
-      paddingHorizontal: 16,
-    },
-    input: {
-      flex: 1,
-      color: authTheme.inputText,
-      fontSize: 16,
-      height: '100%',
-      paddingRight: 16,
-    },
-    button: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: authTheme.button,
-      height: 56,
-      borderRadius: 16,
-      marginTop: 24,
-      gap: 8,
-      shadowColor: authTheme.buttonShadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      elevation: 6,
-    },
-    buttonText: {
-      color: '#FFF',
-      fontSize: 18,
-      fontWeight: 'bold',
-    },
-    linkContainer: {
-      marginTop: 24,
-      alignItems: 'center',
-    },
-    linkText: {
-      color: authTheme.link,
-      fontSize: 14,
-    },
-    linkHighlight: {
-      color: authTheme.linkHighlight,
-      fontWeight: '600',
-    },
-    switchAccountHint: {
-      marginTop: 28,
-      textAlign: 'center',
-      color: authTheme.subtitle,
-      fontSize: 13,
-      paddingHorizontal: 8,
-      lineHeight: 18,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  header: { paddingTop: space.xxxl, gap: space.xxl },
+  titles: { gap: space.sm },
+  form: { marginTop: space.xxl, gap: space.lg },
+  forgot: { alignSelf: 'flex-start', paddingHorizontal: 0 },
+});

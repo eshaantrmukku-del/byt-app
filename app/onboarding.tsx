@@ -1,270 +1,192 @@
-import { getAuthTheme } from '@/constants/theme';
-import { useStore } from '@/store/useStore';
-import { toCoachProfile } from '@/utils/coachProfilePersist';
-import { validateDobInput } from '@/utils/dateOfBirth';
-import { flushUserFirestoreNow } from '@/services/userFirestoreCoordinator';
-import { useKeyboardBottomInset } from '@/hooks/use-keyboard-bottom-inset';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { ArrowRight, Sparkles } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 
-export default function OnboardingScreen() {
-  const router = useRouter();
-  const authTheme = getAuthTheme();
-  const styles = useMemo(() => createStyles(authTheme), [authTheme]);
-  const { setCoachProfile, setOnboardingCompleted } = useStore();
-  const { bottomInset, isOpen: keyboardOpen } = useKeyboardBottomInset();
+import { friendlyError } from '@/features/auth/authErrors';
+import { draftFromProfile, resolveDraft, type ProfileDraft } from '@/features/profile/draft';
+import { diffProfileFields, EMPTY_PROFILE_FIELDS } from '@/features/profile/profileDoc';
+import { hasErrors, PROFILE_LIMITS, type ProfileErrors } from '@/features/profile/validation';
+import { saveProfileChanges } from '@/services/profileService';
+import { useProfileStore } from '@/stores/profileStore';
+import type { ProfileFields } from '@/types/models';
+import { AppText, Banner, Button, colors, DobField, radius, Screen, space, TextField } from '@/ui';
 
-  const [dobDay, setDobDay] = useState('');
-  const [dobMonth, setDobMonth] = useState('');
-  const [dobYear, setDobYear] = useState('');
-  const [profession, setProfession] = useState('');
-  const [goalsSummary, setGoalsSummary] = useState('');
-  const [income, setIncome] = useState('');
-  const [lifestyleNotes, setLifestyleNotes] = useState('');
-  const [struggles, setStruggles] = useState('');
-  const [coachNotes, setCoachNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+type Step = {
+  title: string;
+  intro: string;
+  keys: readonly (keyof ProfileFields)[];
+};
 
-  const handleComplete = async () => {
-    const dob = validateDobInput(dobDay, dobMonth, dobYear);
-    if (!dob.ok) {
-      Alert.alert('Date of birth', dob.error);
-      return;
+const STEPS: readonly Step[] = [
+  {
+    title: 'Let’s start with you',
+    intro: 'A few basics so your coach knows who they’re talking to.',
+    keys: ['displayName', 'dateOfBirth', 'profession'],
+  },
+  {
+    title: 'What do you want to build?',
+    intro: 'Rough is fine. You’ll shape this with your coach over time.',
+    keys: ['goalsSummary', 'struggles'],
+  },
+  {
+    title: 'A little context',
+    intro: 'All optional. Your coach keeps this in the background and only brings it up when it helps.',
+    keys: ['lifestyle', 'income', 'coachNotes'],
+  },
+];
+
+export default function Onboarding() {
+  const profile = useProfileStore((s) => s.profile);
+  const uid = useProfileStore((s) => s.uid);
+  const [draft, setDraft] = useState<ProfileDraft>(() => draftFromProfile(profile ?? EMPTY_PROFILE_FIELDS));
+  const [stepIndex, setStepIndex] = useState(0);
+  const [errors, setErrors] = useState<ProfileErrors>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const step = STEPS[stepIndex]!;
+  const isLast = stepIndex === STEPS.length - 1;
+  const set = <K extends keyof ProfileDraft>(key: K) => (value: ProfileDraft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
+
+  const onContinue = async () => {
+    if (!uid || !profile) return;
+    const { fields, errors: stepErrors } = resolveDraft(draft, step.keys);
+    setErrors(stepErrors);
+    if (hasErrors(stepErrors)) return;
+
+    const changes = diffProfileFields(profile, { ...profile, ...fields });
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // Each step is saved, so nothing is lost if the app closes mid-way.
+      await saveProfileChanges(uid, isLast ? { ...changes, onboardingCompleted: true } : changes);
+      if (!isLast) setStepIndex((i) => i + 1);
+      // On the last step the root layout moves to Home once the profile updates.
+    } catch (e) {
+      setSaveError(friendlyError(e, 'We couldn’t save that. Check your connection and try again.'));
+    } finally {
+      setSaving(false);
     }
-    if (!profession.trim() || !goalsSummary.trim()) {
-      Alert.alert(
-        'Required fields',
-        'Please add your profession and goals so your coach can personalize your experience.'
-      );
-      return;
-    }
-    setSubmitting(true);
-    const profile = toCoachProfile({
-      dateOfBirth: dob.iso,
-      profession,
-      goalsSummary,
-      income,
-      lifestyleNotes,
-      struggles,
-      coachNotes,
-    });
-    setCoachProfile(profile);
-    setOnboardingCompleted(true);
-    const saved = await flushUserFirestoreNow();
-    setSubmitting(false);
-    if (!saved) {
-      Alert.alert('Could not save', 'Check your connection and try again.');
-      return;
-    }
-    router.replace('/(tabs)');
   };
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={authTheme.gradient} style={StyleSheet.absoluteFill} />
-      <SafeAreaView style={styles.safe}>
-        <View style={{ flex: 1, paddingBottom: keyboardOpen ? bottomInset : 0 }}>
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.iconWrap}>
-              <Sparkles size={28} color={authTheme.linkHighlight} />
-            </View>
-            <Text style={styles.title}>Coach intake</Text>
-            <Text style={styles.subtitle}>
-              A few details help your AI coach stay relevant. Your age updates automatically from your
-              date of birth.
-            </Text>
+    <Screen
+      scroll
+      footer={
+        <>
+          <Button label={isLast ? 'Finish' : 'Continue'} onPress={onContinue} loading={saving} />
+          {stepIndex > 0 ? (
+            <Button label="Back" variant="ghost" onPress={() => setStepIndex((i) => i - 1)} disabled={saving} />
+          ) : null}
+        </>
+      }
+    >
+      <View style={styles.progress} accessibilityLabel={`Step ${stepIndex + 1} of ${STEPS.length}`}>
+        {STEPS.map((s, i) => (
+          <View key={s.title} style={[styles.segment, i <= stepIndex && styles.segmentActive]} />
+        ))}
+      </View>
 
-            <Text style={styles.label}>Date of birth *</Text>
-            <Text style={styles.hint}>Day / month / year</Text>
-            <View style={styles.dobRow}>
-              <TextInput
-                style={[styles.input, styles.dobInput]}
-                placeholder="DD"
-                placeholderTextColor={authTheme.iconMuted}
-                value={dobDay}
-                onChangeText={(t) => setDobDay(t.replace(/\D/g, '').slice(0, 2))}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-              <Text style={styles.dobSep}>/</Text>
-              <TextInput
-                style={[styles.input, styles.dobInput]}
-                placeholder="MM"
-                placeholderTextColor={authTheme.iconMuted}
-                value={dobMonth}
-                onChangeText={(t) => setDobMonth(t.replace(/\D/g, '').slice(0, 2))}
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-              <Text style={styles.dobSep}>/</Text>
-              <TextInput
-                style={[styles.input, styles.dobYear]}
-                placeholder="YYYY"
-                placeholderTextColor={authTheme.iconMuted}
-                value={dobYear}
-                onChangeText={(t) => setDobYear(t.replace(/\D/g, '').slice(0, 4))}
-                keyboardType="number-pad"
-                maxLength={4}
-              />
-            </View>
+      <View style={styles.titles}>
+        <AppText variant="overline" tone="muted">
+          Step {stepIndex + 1} of {STEPS.length}
+        </AppText>
+        <AppText variant="title">{step.title}</AppText>
+        <AppText tone="secondary">{step.intro}</AppText>
+      </View>
 
-            <Text style={styles.label}>Profession *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Role / field"
-              placeholderTextColor={authTheme.iconMuted}
-              value={profession}
-              onChangeText={setProfession}
+      <View style={styles.form}>
+        {saveError ? <Banner message={saveError} /> : null}
+
+        {stepIndex === 0 ? (
+          <>
+            <TextField
+              label="Your name"
+              value={draft.displayName}
+              onChangeText={set('displayName')}
+              placeholder="What should your coach call you?"
+              maxLength={PROFILE_LIMITS.displayName}
+              autoComplete="given-name"
+              error={errors.displayName}
             />
+            <DobField value={draft.dob} onChange={set('dob')} error={errors.dateOfBirth} />
+            <TextField
+              label="What do you do?"
+              value={draft.profession}
+              onChangeText={set('profession')}
+              placeholder="e.g. Student, designer, founder"
+              maxLength={PROFILE_LIMITS.profession}
+              error={errors.profession}
+            />
+          </>
+        ) : null}
 
-            <Text style={styles.label}>Goals & focus *</Text>
-            <TextInput
-              style={[styles.input, styles.multiline]}
-              placeholder="What are you working toward over the next months?"
-              placeholderTextColor={authTheme.iconMuted}
-              value={goalsSummary}
-              onChangeText={setGoalsSummary}
+        {stepIndex === 1 ? (
+          <>
+            <TextField
+              label="What are you working towards?"
+              value={draft.goalsSummary}
+              onChangeText={set('goalsSummary')}
+              placeholder="e.g. Get into university, build a business, feel healthier"
+              maxLength={PROFILE_LIMITS.goalsSummary}
               multiline
+              error={errors.goalsSummary}
             />
-
-            <Text style={styles.optionalHeader}>Optional</Text>
-
-            <Text style={styles.label}>Income (optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Rough band or skip"
-              placeholderTextColor={authTheme.iconMuted}
-              value={income}
-              onChangeText={setIncome}
-            />
-
-            <Text style={styles.label}>Lifestyle (optional)</Text>
-            <TextInput
-              style={[styles.input, styles.multiline]}
-              placeholder="Routines, priorities, living situation…"
-              placeholderTextColor={authTheme.iconMuted}
-              value={lifestyleNotes}
-              onChangeText={setLifestyleNotes}
+            <TextField
+              label="What tends to get in the way?"
+              value={draft.struggles}
+              onChangeText={set('struggles')}
+              placeholder="e.g. Procrastination, self-doubt, not enough time"
+              maxLength={PROFILE_LIMITS.struggles}
               multiline
+              optional
+              error={errors.struggles}
             />
+          </>
+        ) : null}
 
-            <Text style={styles.label}>Current struggles (optional)</Text>
-            <TextInput
-              style={[styles.input, styles.multiline]}
-              placeholder="What’s getting in the way?"
-              placeholderTextColor={authTheme.iconMuted}
-              value={struggles}
-              onChangeText={setStruggles}
+        {stepIndex === 2 ? (
+          <>
+            <TextField
+              label="Your lifestyle"
+              value={draft.lifestyle}
+              onChangeText={set('lifestyle')}
+              placeholder="Routine, commitments, how your days look"
+              maxLength={PROFILE_LIMITS.lifestyle}
               multiline
+              optional
+              error={errors.lifestyle}
             />
-
-            <Text style={styles.label}>Notes for your coach (optional)</Text>
-            <TextInput
-              style={[styles.input, styles.multiline]}
-              placeholder="Anything else they should remember"
-              placeholderTextColor={authTheme.iconMuted}
-              value={coachNotes}
-              onChangeText={setCoachNotes}
+            <TextField
+              label="Income"
+              value={draft.income}
+              onChangeText={set('income')}
+              placeholder="Only if it matters for your goals"
+              maxLength={PROFILE_LIMITS.income}
+              optional
+              error={errors.income}
+            />
+            <TextField
+              label="Anything else your coach should know?"
+              value={draft.coachNotes}
+              onChangeText={set('coachNotes')}
+              placeholder="How you like to be challenged, things to avoid…"
+              maxLength={PROFILE_LIMITS.coachNotes}
               multiline
+              optional
+              error={errors.coachNotes}
             />
-
-            <TouchableOpacity
-              style={[styles.button, submitting && { opacity: 0.75 }]}
-              onPress={() => void handleComplete()}
-              disabled={submitting}
-              activeOpacity={0.85}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <>
-                  <Text style={styles.buttonText}>Continue to BYT</Text>
-                  <ArrowRight size={20} color="#FFF" />
-                </>
-              )}
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    </View>
+          </>
+        ) : null}
+      </View>
+    </Screen>
   );
 }
 
-function createStyles(authTheme: ReturnType<typeof getAuthTheme>) {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: authTheme.container },
-    safe: { flex: 1 },
-    flex: { flex: 1 },
-    scroll: { paddingHorizontal: 24, paddingBottom: 40, paddingTop: 16 },
-    iconWrap: {
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: authTheme.iconBoxBg,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 20,
-      borderWidth: 1,
-      borderColor: authTheme.iconBoxBorder,
-    },
-    title: { fontSize: 28, fontWeight: '800', color: authTheme.title, marginBottom: 8 },
-    subtitle: { fontSize: 15, color: authTheme.subtitle, lineHeight: 22, marginBottom: 28 },
-    label: { fontSize: 13, fontWeight: '600', color: authTheme.title, marginBottom: 8, marginTop: 4 },
-    hint: { fontSize: 12, color: authTheme.subtitle, marginBottom: 8, marginTop: -4 },
-    dobRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-    dobInput: { flex: 1, textAlign: 'center', marginBottom: 0 },
-    dobYear: { flex: 1.4, textAlign: 'center', marginBottom: 0 },
-    dobSep: { color: authTheme.subtitle, fontSize: 18, fontWeight: '600', marginHorizontal: 6 },
-    optionalHeader: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: authTheme.subtitle,
-      letterSpacing: 1.2,
-      marginTop: 12,
-      marginBottom: 8,
-      textTransform: 'uppercase',
-    },
-    input: {
-      backgroundColor: authTheme.inputBg,
-      borderWidth: 1,
-      borderColor: authTheme.inputBorder,
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: Platform.OS === 'ios' ? 14 : 10,
-      color: authTheme.title,
-      fontSize: 16,
-      marginBottom: 14,
-    },
-    multiline: { minHeight: 96, textAlignVertical: 'top' },
-    button: {
-      marginTop: 8,
-      backgroundColor: authTheme.button,
-      borderRadius: 14,
-      paddingVertical: 16,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-    },
-    buttonText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
-  });
-}
+const styles = StyleSheet.create({
+  progress: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },
+  segment: { flex: 1, height: 3, borderRadius: radius.pill, backgroundColor: colors.border },
+  segmentActive: { backgroundColor: colors.accent },
+  titles: { marginTop: space.xxl, gap: space.sm },
+  form: { marginTop: space.xxl, gap: space.xl },
+});
