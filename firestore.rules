@@ -155,7 +155,7 @@ service cloud.firestore {
       match /conversations/{conversationId} {
         allow read: if isOwner(uid);
         allow create: if isOwner(uid) && validConversationCreate(request.resource.data);
-        // Clients may rename; previews, summaries and everything else are written by the backend.
+        // Clients may rename. Previews, summaries and messages are written by the backend.
         allow update: if isOwner(uid)
           && changed().hasOnly(['title', 'titleEdited', 'updatedAt'])
           && isText(request.resource.data.title, 1, 120)
@@ -165,7 +165,7 @@ service cloud.firestore {
 
         match /messages/{messageId} {
           allow read: if isOwner(uid);
-          // Both sides of every turn are written by the backend (coachTurn / voiceTurn).
+          // Both sides of every turn are written by coachTurn / voiceTurn.
           allow create, update: if false;
           allow delete: if isOwner(uid);
         }
