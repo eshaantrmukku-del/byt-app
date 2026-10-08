@@ -174,12 +174,12 @@ export default function VoiceCallScreen() {
     try {
       const response = await coachClient.voiceTurn(request);
       if (!callActive.current) return;
-      applyTurnCredits(response.creditsRemaining);
-      setCoachReply(response.reply);
+      applyTurnCredits(response.credits);
+      setCoachReply(response.reply.text);
       if (response.proposal) setProposal(response.proposal);
-      if (response.audioBase64) {
+      if (response.replyAudio) {
         try {
-          await playReply({ base64: response.audioBase64 });
+          await playReply(response.replyAudio);
         } catch {
           showToast("Couldn't play the coach's voice — the reply is shown above.");
           setCallState('idle');
@@ -258,12 +258,11 @@ export default function VoiceCallScreen() {
         return;
       }
       await sendTurn({
-        clientTurnId: newRequestId(),
+        requestId: newRequestId(),
         conversationId: conversation.id,
         mode: conversation.mode,
         ...(conversation.reflectionCheckInId ? { reflectionCheckInId: conversation.reflectionCheckInId } : {}),
-        audioBase64: base64,
-        mimeType: MIME_TYPE,
+        audio: { base64, mimeType: MIME_TYPE, durationMs: Math.min(durationMs, VOICE_MAX_DURATION_MS) },
         wantAudio: true,
       });
     } catch {

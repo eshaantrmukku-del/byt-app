@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildTimeline, formatRelativeTime, isTurnSynced, sessionGreeting, titleFromMessage, type PendingTurn } from '@/features/chat/chat';
+import { buildTimeline, formatRelativeTime, isTurnSynced, titleFromMessage, type PendingTurn } from '@/features/chat/chat';
 import { focusAreas, weekActivity } from '@/features/insights/insights';
 import { CoachError, toCoachError } from '@/services/coach/errors';
 import type { ChatMessage, Goal } from '@/types/models';
@@ -99,8 +99,6 @@ describe('chat timeline', () => {
   it('titles from the first message the way the prototype did', () => {
     expect(titleFromMessage('  hello   world  ')).toBe('hello world');
     expect(titleFromMessage('abcdefghijklmnopqrstuvwxyz123456')).toBe('abcdefghijklmnopqrstuvwxyz1234...');
-    expect(sessionGreeting('reflection')).toContain('check-in');
-    expect(sessionGreeting('normal')).not.toContain('check-in');
   });
 
   it('formats relative times', () => {
@@ -116,30 +114,37 @@ describe('toCoachError', () => {
   it('maps contract reasons and keeps retry timing', () => {
     const error = toCoachError({
       code: 'functions/aborted',
-      details: { reason: 'turn-in-progress', retryable: true, retryAfterMs: 1500 },
+      details: { reason: 'in-progress', retryAfterSeconds: 2 },
     });
     expect(error).toBeInstanceOf(CoachError);
-    expect(error.reason).toBe('turn-in-progress');
+    expect(error.reason).toBe('in-progress');
     expect(error.retryable).toBe(true);
-    expect(error.retryAfterMs).toBe(1500);
-    expect(error.message).not.toMatch(/gemini|deepgram|stack/i);
+    expect(error.retryAfterSeconds).toBe(2);
+    expect(error.message).not.toMatch(/gemini|deepgram|aura|stack/i);
   });
 
-  it('treats a bare not-found as the function not being deployed', () => {
+  it('distinguishes a missing function from a missing conversation', () => {
     expect(toCoachError({ code: 'not-found' }).reason).toBe('not-deployed');
+    expect(toCoachError({ code: 'not-found', details: { reason: 'conversation-not-found' } }).reason).toBe('conversation-not-found');
+    expect(toCoachError({ code: 'not-found', details: { reason: 'check-in-not-found' } }).reason).toBe('check-in-not-found');
   });
 
-  it('maps the previous draft’s reason names', () => {
-    expect(toCoachError({ code: 'unavailable', details: { reason: 'provider-unavailable' } }).reason).toBe('ai-unavailable');
-    expect(toCoachError({ code: 'resource-exhausted', details: { reason: 'no-credits', retryable: false } })).toMatchObject({
-      reason: 'no-credits',
-      retryable: false,
-    });
+  it('maps credit, speech, length and provider failures', () => {
+    expect(toCoachError({ code: 'resource-exhausted', details: { reason: 'no-credits', remaining: 0 } }).reason).toBe('no-credits');
+    expect(toCoachError({ code: 'invalid-argument', details: { reason: 'no-speech' } }).reason).toBe('no-speech');
+    expect(toCoachError({ code: 'invalid-argument', details: { reason: 'text-too-long' } }).reason).toBe('text-too-long');
+    expect(toCoachError({ code: 'invalid-argument', details: { reason: 'audio-too-long' } }).reason).toBe('audio-too-long');
+    expect(toCoachError({ code: 'unavailable', details: { reason: 'provider-unavailable', refunded: true } }).reason).toBe(
+      'provider-unavailable'
+    );
+    expect(toCoachError({ code: 'failed-precondition', details: { reason: 'not-configured' } }).reason).toBe('not-configured');
+    expect(toCoachError({ code: 'internal', details: { reason: 'internal' } }).retryable).toBe(true);
   });
 
   it('maps codes when the backend omits a reason', () => {
     expect(toCoachError({ code: 'functions/unauthenticated' }).reason).toBe('unauthenticated');
     expect(toCoachError({ code: 'deadline-exceeded' }).reason).toBe('network');
-    expect(toCoachError({ code: 'invalid-argument' }).reason).toBe('invalid-input');
+    expect(toCoachError({ code: 'invalid-argument' }).reason).toBe('invalid-request');
+    expect(toCoachError({ code: 'unavailable' }).reason).toBe('provider-unavailable');
   });
 });

@@ -7,21 +7,36 @@ import type { ChatMessage } from '@/types/models';
 
 type MessagesState = { status: 'loading' | 'ready' | 'unavailable'; items: ChatMessage[]; error: string | null };
 
+export type OpenerRecord =
+  | { state: 'loading' }
+  | { state: 'failed'; error: string }
+  | { state: 'sent'; text: string };
+
 type ChatState = {
   /** Conversation shown by the coach screen; chosen from history or created. */
   activeConversationId: string | null;
   messages: Record<string, MessagesState>;
+  openers: Record<string, OpenerRecord>;
   setActive: (id: string | null) => void;
   setMessages: (conversationId: string, state: MessagesState) => void;
+  setOpener: (conversationId: string, state: OpenerRecord | null) => void;
   reset: () => void;
 };
 
 export const useChatStore = create<ChatState>()((set) => ({
   activeConversationId: null,
   messages: {},
+  openers: {},
   setActive: (activeConversationId) => set({ activeConversationId }),
   setMessages: (conversationId, state) => set((s) => ({ messages: { ...s.messages, [conversationId]: state } })),
-  reset: () => set({ activeConversationId: null, messages: {} }),
+  setOpener: (conversationId, state) =>
+    set((s) => {
+      const openers = { ...s.openers };
+      if (state) openers[conversationId] = state;
+      else delete openers[conversationId];
+      return { openers };
+    }),
+  reset: () => set({ activeConversationId: null, messages: {}, openers: {} }),
 }));
 
 type PendingState = {

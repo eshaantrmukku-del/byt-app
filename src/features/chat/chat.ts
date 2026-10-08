@@ -36,17 +36,6 @@ export function titleFromMessage(text: string): string {
   return clean.length > 30 ? `${clean.substring(0, 30)}...` : clean;
 }
 
-/**
- * Local invite shown until the first message. The backend has no free opener
- * (`coachTurn` always requires user text and spends a credit), so this is not stored.
- */
-export function sessionGreeting(mode: ConversationMode): string {
-  if (mode === 'reflection') {
-    return 'Let’s look at this check-in together. What stands out most, and what would you like to do with it?';
-  }
-  return 'What do you most want to move forward on this week, and what would make that meaningful?';
-}
-
 export function shouldAutoTitle(conversation: Pick<Conversation, 'title' | 'titleEdited' | 'mode'>): boolean {
   return !conversation.titleEdited && conversation.title === DEFAULT_TITLES[conversation.mode];
 }

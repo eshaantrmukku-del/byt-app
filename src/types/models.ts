@@ -125,11 +125,11 @@ export type ConversationDoc = {
 export type MessageRole = 'user' | 'coach';
 export type MessageChannel = 'text' | 'voice';
 
-/** Written by the backend only: `{clientTurnId}-u` for the user turn, `{clientTurnId}-c` for the coach. */
+/** Written by the backend only: `{requestId}` for the user turn, `{requestId}_reply` for the coach. */
 export type MessageDoc = {
   role: MessageRole;
   text: string;
-  /** Client-generated turn id shared with the backend (idempotent credit charging). */
+  /** Same value as the turn's requestId. User doc id is that id; the coach doc id is `{requestId}_reply`. */
   clientTurnId: string;
   channel: MessageChannel;
   createdAt: ServerTime;

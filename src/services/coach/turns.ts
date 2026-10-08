@@ -2,12 +2,12 @@ import { currentPeriodKey } from '@/features/chat/chat';
 import type { PendingTurn } from '@/features/chat/chat';
 import { normaliseProgress } from '@/features/goals/goals';
 import { updateGoal } from '@/services/goalsService';
-import { usePendingTurnsStore } from '@/stores/chatStore';
+import { useChatStore, usePendingTurnsStore } from '@/stores/chatStore';
 import { useCreditsStore } from '@/stores/creditsStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 import type { Conversation } from '@/types/models';
 
-import { coachClient, newRequestId } from './coachClient';
+import { coachClient, newRequestId, openerRequestId } from './coachClient';
 import { toCoachError } from './errors';
 import type { GoalProgressProposal } from './types';
 
@@ -15,12 +15,12 @@ export type SendResult =
   | { ok: true; proposal?: GoalProgressProposal }
   | { ok: false; reason: 'no-credits' | 'failed'; message: string };
 
-export function applyTurnCredits(creditsRemaining: number) {
+export function applyTurnCredits(credits: { remaining: number; periodKey: string }) {
   const current = useCreditsStore.getState().account;
   useCreditsStore.getState().setAccount({
     plan: current?.plan ?? 'standard',
-    creditsRemaining,
-    creditsPeriodKey: current?.creditsPeriodKey || currentPeriodKey(),
+    creditsRemaining: credits.remaining,
+    creditsPeriodKey: credits.periodKey || current?.creditsPeriodKey || currentPeriodKey(),
     ...(current?.monthlyAllowance !== undefined ? { monthlyAllowance: current.monthlyAllowance } : {}),
   });
 }
@@ -38,14 +38,15 @@ async function deliver(turn: PendingTurn, conversation: Conversation): Promise<S
   pending.upsert({ ...turn, status: 'sending', error: undefined });
   try {
     const response = await coachClient.coachTurn({
-      clientTurnId: turn.requestId,
+      requestId: turn.requestId,
+      kind: 'message',
       text: turn.text,
       ...target(conversation),
     });
-    applyTurnCredits(response.creditsRemaining);
+    applyTurnCredits(response.credits);
     pending.update(turn.requestId, {
       status: 'delivered',
-      reply: { text: response.reply, createdAt: Date.now() },
+      reply: { text: response.reply.text, createdAt: response.reply.createdAt },
     });
     return { ok: true, ...(response.proposal ? { proposal: response.proposal } : {}) };
   } catch (error) {
@@ -84,6 +85,42 @@ export function retryMessage(requestId: string, conversation: Conversation): Pro
 
 export function discardMessage(requestId: string) {
   usePendingTurnsStore.getState().remove(requestId);
+}
+
+const openersInFlight = new Set<string>();
+
+/** Asks the coach to open the session. Free, and at most once per conversation. */
+export async function requestOpener(conversation: Conversation): Promise<void> {
+  if (openersInFlight.has(conversation.id)) return;
+  openersInFlight.add(conversation.id);
+  useChatStore.getState().setOpener(conversation.id, { state: 'loading' });
+  try {
+    let lastError = toCoachError(new Error('opener'));
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        const response = await coachClient.coachTurn({
+          requestId: openerRequestId(conversation.id),
+          kind: 'opener',
+          ...target(conversation),
+        });
+        applyTurnCredits(response.credits);
+        // Keep the reply on screen until the `{requestId}_reply` document arrives.
+        useChatStore.getState().setOpener(conversation.id, { state: 'sent', text: response.reply.text });
+        return;
+      } catch (error) {
+        lastError = toCoachError(error);
+        // The conversation doc may still be syncing when the screen opens.
+        if (lastError.reason === 'conversation-not-found' && attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          continue;
+        }
+        break;
+      }
+    }
+    useChatStore.getState().setOpener(conversation.id, { state: 'failed', error: lastError.message });
+  } finally {
+    openersInFlight.delete(conversation.id);
+  }
 }
 
 /** Applies a coach-suggested progress change after the user confirms it. Never automatic. */

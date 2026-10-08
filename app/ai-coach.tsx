@@ -15,9 +15,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { buildTimeline, currentPeriodKey, isTurnSynced, nextResetLabel, sessionGreeting, shouldAutoTitle, sortConversations, type TimelineItem } from '@/features/chat/chat';
+import { buildTimeline, currentPeriodKey, isTurnSynced, nextResetLabel, shouldAutoTitle, sortConversations, type TimelineItem } from '@/features/chat/chat';
 import { COACH_TEXT_LIMIT, type GoalProgressProposal } from '@/services/coach/types';
-import { acceptGoalProposal, discardMessage, retryMessage, sendMessage } from '@/services/coach/turns';
+import { acceptGoalProposal, discardMessage, requestOpener, retryMessage, sendMessage } from '@/services/coach/turns';
 import { autoTitleConversation, createConversation, renameConversation, watchMessages } from '@/services/conversationsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore, usePendingTurnsStore } from '@/stores/chatStore';
@@ -49,6 +49,7 @@ export default function AiCoachScreen() {
 
   const conversation = conversations.items.find((c) => c.id === conversationId);
   const messagesState = useChatStore((s) => (conversationId ? s.messages[conversationId] : undefined));
+  const opener = useChatStore((s) => (conversationId ? s.openers[conversationId] : undefined));
   const allPending = usePendingTurnsStore((s) => s.turns);
   const pending = useMemo(
     () => allPending.filter((t) => t.conversationId === conversationId && t.uid === uid),
@@ -62,6 +63,13 @@ export default function AiCoachScreen() {
 
   const messages = useMemo(() => messagesState?.items ?? [], [messagesState]);
 
+  // Free opener: the coach speaks first, once per conversation, and it is never charged.
+  useEffect(() => {
+    if (!conversation || messagesState?.status !== 'ready') return;
+    if (messages.length > 0 || pending.length > 0 || opener) return;
+    void requestOpener(conversation);
+  }, [conversation, messagesState?.status, messages.length, pending.length, opener]);
+
   // Drop local copies once the server has stored both sides of a turn.
   useEffect(() => {
     pending.filter((t) => t.status === 'delivered' && isTurnSynced(t, messages)).forEach((t) => discardMessage(t.requestId));
@@ -69,7 +77,7 @@ export default function AiCoachScreen() {
 
   const timeline = useMemo(() => buildTimeline(messages, pending), [messages, pending]);
   const sending = pending.some((t) => t.status === 'sending');
-  const isTyping = sending;
+  const isTyping = sending || opener?.state === 'loading';
 
   const [inputText, setInputText] = useState('');
   const [noCredits, setNoCredits] = useState(false);
@@ -166,10 +174,26 @@ export default function AiCoachScreen() {
     <View style={styles.typing}>
       <Text style={styles.typingText}>Typing...</Text>
     </View>
+  ) : opener?.state === 'sent' && !messages.some((m) => m.role === 'coach') ? (
+    <View style={[styles.messageWrap, styles.aiWrap]}>
+      <View style={[styles.messageBubble, styles.aiBubble]} accessibilityLabel="Coach greeting">
+        <Text style={[styles.messageText, { color: theme.text }]}>{opener.text}</Text>
+      </View>
+    </View>
+  ) : opener?.state === 'failed' && timeline.length === 0 ? (
+    <View style={[styles.messageWrap, styles.aiWrap]}>
+      <TouchableOpacity
+        style={[styles.messageBubble, styles.aiBubble]}
+        onPress={() => conversation && void requestOpener(conversation)}
+        accessibilityRole="button"
+        accessibilityLabel="Retry opener"
+      >
+        <Text style={[styles.messageText, { color: theme.text }]}>{opener.error} Tap to try again.</Text>
+      </TouchableOpacity>
+    </View>
   ) : null;
 
   const loading = !conversation || !messagesState || messagesState.status === 'loading';
-  const showGreeting = !loading && timeline.length === 0 && !isTyping && conversation;
   const activeProposal = proposal?.conversationId === conversationId ? proposal.proposal : null;
   const proposalGoal = activeProposal ? goals.find((g) => g.id === activeProposal.goalId) : undefined;
 
@@ -244,15 +268,6 @@ export default function AiCoachScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-            ListHeaderComponent={
-              showGreeting && conversation ? (
-                <View style={[styles.messageWrap, styles.aiWrap]}>
-                  <View style={[styles.messageBubble, styles.aiBubble]} accessibilityLabel="Coach greeting">
-                    <Text style={[styles.messageText, { color: theme.text }]}>{sessionGreeting(conversation.mode)}</Text>
-                  </View>
-                </View>
-              ) : null
-            }
             ListFooterComponent={listFooter}
           />
         )}
