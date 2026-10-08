@@ -68,18 +68,18 @@ export default function GoalsScreen() {
   const renderGoal = ({ item }: { item: Goal }) => {
     const done = item.status === 'completed';
     return (
-      <TouchableOpacity
-        style={styles.goalCard}
-        activeOpacity={0.85}
-        onPress={() => setEditing(item)}
-        accessibilityRole="button"
-        accessibilityLabel={`${item.title}, ${item.progress}%`}
-      >
+      <View style={styles.goalCard}>
         <View style={styles.goalHeader}>
-          <View style={styles.flex}>
+          <TouchableOpacity
+            style={styles.flex}
+            activeOpacity={0.85}
+            onPress={() => setEditing(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title}, ${item.progress}%`}
+          >
             <Text style={styles.goalCategory}>{CATEGORY_LABELS[item.category]}</Text>
             <Text style={styles.goalTitle}>{item.title}</Text>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => void toggleStatus(item)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -96,7 +96,7 @@ export default function GoalsScreen() {
           </View>
           <Text style={styles.progressText}>{item.progress}%</Text>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 

@@ -58,25 +58,27 @@ export default function ChatsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.chatItem}
-            onPress={() => open(item.id)}
-            onLongPress={() => setRenaming(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`Open ${item.title}`}
-          >
-            <View style={styles.chatIconContainer}>
-              <MessageSquare size={24} color={theme.primary} />
-            </View>
-            <View style={styles.chatContent}>
-              <Text style={styles.chatTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={styles.chatPreview} numberOfLines={1}>
-                {item.lastMessagePreview || 'New session — tap to start'}
-              </Text>
-              <Text style={styles.chatTime}>{formatRelativeTime(item.updatedAt)}</Text>
-            </View>
+          <View style={styles.chatItem}>
+            <TouchableOpacity
+              style={styles.chatMain}
+              onPress={() => open(item.id)}
+              onLongPress={() => setRenaming(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${item.title}`}
+            >
+              <View style={styles.chatIconContainer}>
+                <MessageSquare size={24} color={theme.primary} />
+              </View>
+              <View style={styles.chatContent}>
+                <Text style={styles.chatTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
+                <Text style={styles.chatPreview} numberOfLines={1}>
+                  {item.lastMessagePreview || 'New session — tap to start'}
+                </Text>
+                <Text style={styles.chatTime}>{formatRelativeTime(item.updatedAt)}</Text>
+              </View>
+            </TouchableOpacity>
             <View style={styles.actionsCol}>
               <TouchableOpacity
                 onPress={() => setRenaming(item)}
@@ -99,7 +101,7 @@ export default function ChatsScreen() {
                 </TouchableOpacity>
               ) : null}
             </View>
-          </TouchableOpacity>
+          </View>
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -159,6 +161,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
   },
+  chatMain: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
   chatIconContainer: {
     width: 48,
     height: 48,
