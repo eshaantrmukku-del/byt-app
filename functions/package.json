@@ -9,7 +9,9 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
-    "test:emulator": "bash ../scripts/test-functions-emulator.sh",
+    "test:emulator": "bash scripts/test-emulator.sh",
+    "test:emulator:vitest": "vitest run --config vitest.emulator.config.ts",
+    "eval": "tsx ../eval/src/run.ts",
     "serve": "npm run build && firebase emulators:start --only functions,firestore,auth --project demo-byt",
     "list-models": "tsx scripts/list-models.ts"
   },

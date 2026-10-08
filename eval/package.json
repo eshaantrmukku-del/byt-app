@@ -1,0 +1,8 @@
+{
+  "name": "byt-eval",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "npm --prefix ../functions exec -- tsx ../eval/src/run.ts"
+  }
+}

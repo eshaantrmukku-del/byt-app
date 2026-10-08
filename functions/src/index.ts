@@ -88,7 +88,7 @@ export const deleteAccount = onCall(
   wrap(async (req) => {
     const uid = req.auth?.uid;
     if (!uid) throw new CoachError('unauthenticated');
-    if ((req.data as { confirm?: unknown } | null)?.confirm !== 'DELETE') throw new CoachError('invalid-input');
+    if ((req.data as { confirm?: unknown } | null)?.confirm !== 'DELETE') throw new CoachError('invalid-request');
     await db.recursiveDelete(db.collection('users').doc(uid));
     await getAuth().deleteUser(uid);
     logger.info('account_deleted', { uid });

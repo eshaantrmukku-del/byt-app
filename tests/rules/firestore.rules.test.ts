@@ -252,23 +252,21 @@ describe('subcollections', () => {
 
   it('conversations: clients rename only; summaries are server-owned', async () => {
     const ref = doc(dbFor(ALICE), 'users/alice/conversations/c1');
-    await assertSucceeds(setDoc(ref, { title: 'First chat', mode: 'normal', ...stamps() }));
-    await assertSucceeds(updateDoc(ref, { title: 'Renamed', updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(ref, { title: 'First chat', mode: 'normal', titleEdited: false, ...stamps() }));
+    await assertSucceeds(updateDoc(ref, { title: 'Renamed', titleEdited: true, updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(ref, { summary: 'injected', updatedAt: serverTimestamp() }));
     await assertFails(
       setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c2'), { title: 'x', mode: 'normal', summary: 's', ...stamps() })
     );
   });
 
-  it('messages: clients write only their own turns, never coach replies or edits', async () => {
+  it('messages: only the backend can write them; the owner can read', async () => {
     await seed('users/alice/conversations/c1', { title: 'Chat', mode: 'normal' });
+    await seed('users/alice/conversations/c1/messages/m1', { role: 'coach', text: 'Hi', clientTurnId: 't1' });
     const userMsg = { role: 'user', text: 'Hi', clientTurnId: 't1', createdAt: serverTimestamp() };
-    const ref = doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/m1');
-    await assertSucceeds(setDoc(ref, userMsg));
-    await assertFails(
-      setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/m2'), { ...userMsg, role: 'coach' })
-    );
-    await assertFails(updateDoc(ref, { text: 'edited' }));
+    await assertFails(setDoc(doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/m2'), userMsg));
+    await assertFails(updateDoc(doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/m1'), { text: 'edited' }));
+    await assertSucceeds(getDoc(doc(dbFor(ALICE), 'users/alice/conversations/c1/messages/m1')));
     await assertFails(getDoc(doc(dbFor(BOB), 'users/alice/conversations/c1/messages/m1')));
   });
 

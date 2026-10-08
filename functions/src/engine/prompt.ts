@@ -65,8 +65,9 @@ export function buildReplySystem(p: {
 export function buildReplyMessages(history: CoachContextData['history'], text: string): LlmMessage[] {
   const messages: LlmMessage[] = history.map((m) => ({ role: m.role === 'user' ? 'user' : 'model', text: m.text }));
   messages.push({ role: 'user', text });
-  // Gemini expects the first turn to be from the user.
-  while (messages.length && messages[0]!.role !== 'user') messages.shift();
+  // Gemini expects the conversation to start with the user. A session the coach opened
+  // starts with a coach message, so keep it and add a one-line marker in front.
+  if (messages[0]?.role === 'model') messages.unshift({ role: 'user', text: '(started a session)' });
   return messages;
 }
 

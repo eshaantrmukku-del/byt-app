@@ -6,8 +6,13 @@ export const DEFAULT_PLAN: Plan = 'standard';
 
 export const LIMITS = {
   textMaxChars: 4000,
+  /** requestId is 8–64; Firestore conversation ids are shorter, so ids allow 1–64. */
+  requestIdMin: 8,
   idMaxChars: 64,
-  audioMaxBytes: 6 * 1024 * 1024,
+  /** Matches the app: base64 length, not decoded bytes. About 2 MB of audio. */
+  audioMaxBase64: 2_800_000,
+  audioMaxDurationMs: 60_000,
+  previewChars: 120,
   /** A running turn holds its idempotency record this long; a crashed run can then be retried. */
   turnLeaseMs: 90_000,
   rate: { perMinute: 8, perHour: 60 },

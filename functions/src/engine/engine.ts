@@ -44,7 +44,8 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
   let analysis: TurnAnalysis = fallback;
   let analysisSource: 'model' | 'fallback' = 'fallback';
   let analysisMs = 0;
-  if (!opts.skipModelAnalysis && fallback.risk !== 'crisis') {
+  const opener = text.startsWith('(The user opened');
+  if (!opts.skipModelAnalysis && fallback.risk !== 'crisis' && !opener) {
     try {
       const res = await llm.generate({
         purpose: 'analysis',

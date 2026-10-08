@@ -8,6 +8,7 @@ import {
   userMessageId,
   type AccountResponse,
   type Channel,
+  type CoachMessagePayload,
   type CoachTurnResponse,
   type VoiceTurnResponse,
 } from '../contract.js';
@@ -42,23 +43,32 @@ function requireUid(ctx: CallContext): string {
   return ctx.uid;
 }
 
-function baseResponse(p: {
-  clientTurnId: string;
+function payload(id: string, text: string, createdAt: number): CoachMessagePayload {
+  return { id, text, createdAt };
+}
+
+function response(p: {
+  requestId: string;
   conversationId: string;
   reply: string;
+  replyCreatedAtMs: number;
+  userText?: string;
+  userCreatedAtMs?: number;
   creditsRemaining: number;
+  periodKey: string;
+  charged: 0 | 1;
   replayed: boolean;
   proposal?: CoachTurnResponse['proposal'] | null;
 }): CoachTurnResponse {
   return {
-    ok: true,
-    clientTurnId: p.clientTurnId,
+    requestId: p.requestId,
     conversationId: p.conversationId,
-    userMessageId: userMessageId(p.clientTurnId),
-    coachMessageId: coachMessageId(p.clientTurnId),
-    reply: p.reply,
-    creditsRemaining: p.creditsRemaining,
     replayed: p.replayed,
+    userMessage: p.userText !== undefined && p.userCreatedAtMs !== undefined
+      ? payload(userMessageId(p.requestId), p.userText, p.userCreatedAtMs)
+      : null,
+    reply: payload(coachMessageId(p.requestId), p.reply, p.replyCreatedAtMs),
+    credits: { remaining: p.creditsRemaining, periodKey: p.periodKey, charged: p.charged },
     ...(p.proposal ? { proposal: p.proposal } : {}),
   };
 }
@@ -69,35 +79,36 @@ function baseResponse(p: {
  */
 async function runChargedTurn(
   deps: TurnDeps,
-  p: { uid: string; clientTurnId: string; conversationId: string; attempt: number; channel: Channel; conversation: ConversationState; text: string },
-): Promise<{ result: EngineResult; creditsRemaining: number; reply: string; proposal?: CoachTurnResponse['proposal'] | null }> {
+  p: { uid: string; requestId: string; conversationId: string; attempt: number; channel: Channel; conversation: ConversationState; text: string },
+): Promise<{ result: EngineResult; creditsRemaining: number; periodKey: string; reply: string; replyCreatedAtMs: number; proposal?: CoachTurnResponse['proposal'] | null }> {
   const started = deps.now();
   let result: EngineResult;
   try {
     const llm = deps.llm();
-    const context = await loadCoachContext(deps.db, { ...p, nowMs: started });
+    const context = await loadCoachContext(deps.db, { uid: p.uid, conversationId: p.conversationId, clientTurnId: p.requestId, conversation: p.conversation, nowMs: started });
     result = await runCoachingEngine(llm, { text: p.text, channel: p.channel, context }, deps.engineOptions);
   } catch (error) {
-    const creditsRemaining = await failTurn(deps.db, { uid: p.uid, clientTurnId: p.clientTurnId, attempt: p.attempt });
-    const reason = error instanceof CoachError ? error.reason : 'ai-unavailable';
-    deps.log('turn_failed', { uid: p.uid, clientTurnId: p.clientTurnId, channel: p.channel, stage: 'engine', reason, errorKind: (error as { kind?: string }).kind ?? (error as Error).name });
-    throw new CoachError(reason === 'not-configured' ? 'not-configured' : 'ai-unavailable', { creditsRemaining });
+    const creditsRemaining = await failTurn(deps.db, { uid: p.uid, requestId: p.requestId, attempt: p.attempt });
+    const reason = error instanceof CoachError ? error.reason : 'provider-unavailable';
+    deps.log('turn_failed', { uid: p.uid, requestId: p.requestId, channel: p.channel, stage: 'engine', reason, errorKind: (error as { kind?: string }).kind ?? (error as Error).name });
+    throw new CoachError(reason === 'not-configured' ? 'not-configured' : 'provider-unavailable', { refunded: true, remaining: creditsRemaining });
   }
 
   try {
-    const { turn, creditsRemaining } = await completeTurn(deps.db, {
+    const { turn, creditsRemaining, periodKey } = await completeTurn(deps.db, {
       uid: p.uid,
-      clientTurnId: p.clientTurnId,
+      requestId: p.requestId,
       conversationId: p.conversationId,
       channel: p.channel,
       reply: result.reply,
+      nowMs: deps.now(),
       ...(result.proposal ? { proposal: result.proposal } : {}),
       ...(result.summary ? { summary: result.summary } : {}),
     });
     const t = result.trace;
     deps.log('turn_completed', {
       uid: p.uid,
-      clientTurnId: p.clientTurnId,
+      requestId: p.requestId,
       channel: p.channel,
       move: t.plan.primary,
       stage: t.analysis.stage,
@@ -110,94 +121,167 @@ async function runChargedTurn(
       tokens: t.tokens,
       summarised: Boolean(result.summary),
     });
-    return { result, creditsRemaining, reply: turn.reply ?? result.reply, proposal: turn.proposal };
+    return { result, creditsRemaining, periodKey, reply: turn.reply ?? result.reply, replyCreatedAtMs: turn.replyCreatedAtMs ?? deps.now(), proposal: turn.proposal };
   } catch (error) {
-    const creditsRemaining = await failTurn(deps.db, { uid: p.uid, clientTurnId: p.clientTurnId, attempt: p.attempt }).catch(() => undefined);
-    deps.log('turn_failed', { uid: p.uid, clientTurnId: p.clientTurnId, channel: p.channel, stage: 'complete' });
-    throw new CoachError('internal', creditsRemaining === undefined ? {} : { creditsRemaining });
+    const creditsRemaining = await failTurn(deps.db, { uid: p.uid, requestId: p.requestId, attempt: p.attempt }).catch(() => undefined);
+    deps.log('turn_failed', { uid: p.uid, requestId: p.requestId, channel: p.channel, stage: 'complete' });
+    throw new CoachError('internal', creditsRemaining === undefined ? { refunded: true } : { refunded: true, remaining: creditsRemaining });
   }
 }
 
 export async function handleCoachTurn(deps: TurnDeps, ctx: CallContext, data: unknown): Promise<CoachTurnResponse> {
   const uid = requireUid(ctx);
   const req = parseCoachTurnRequest(data);
+  const nowMs = deps.now();
   const begin = await beginTurn(deps.db, {
     uid,
-    clientTurnId: req.clientTurnId,
+    requestId: req.requestId,
     conversationId: req.conversationId,
     channel: 'text',
-    inputHash: sha256(`text\n${req.text}`),
-    userText: req.text,
-    ...(req.mode ? { mode: req.mode } : {}),
+    charge: req.kind === 'message',
+    inputHash: sha256(req.kind === 'message' ? `text\n${req.text}` : 'opener'),
+    ...(req.kind === 'message' ? { userText: req.text } : {}),
     ...(req.reflectionCheckInId ? { reflectionCheckInId: req.reflectionCheckInId } : {}),
-    nowMs: deps.now(),
+    nowMs,
   });
 
   if (begin.kind === 'replay') {
-    deps.log('turn_replayed', { uid, clientTurnId: req.clientTurnId, channel: 'text' });
-    return baseResponse({ ...req, reply: begin.turn.reply ?? '', creditsRemaining: begin.creditsRemaining, replayed: true, proposal: begin.turn.proposal });
+    deps.log('turn_replayed', { uid, requestId: req.requestId, channel: 'text' });
+    return response({
+      requestId: req.requestId,
+      conversationId: req.conversationId,
+      reply: begin.turn.reply ?? '',
+      replyCreatedAtMs: begin.turn.replyCreatedAtMs ?? nowMs,
+      ...(req.kind === 'message' ? { userText: req.text, userCreatedAtMs: begin.turn.userCreatedAtMs ?? nowMs } : {}),
+      creditsRemaining: begin.creditsRemaining,
+      periodKey: begin.periodKey,
+      charged: 0,
+      replayed: true,
+      proposal: begin.turn.proposal,
+    });
   }
 
-  const run = await runChargedTurn(deps, { uid, ...req, attempt: begin.attempt, channel: 'text', conversation: begin.conversation });
-  return baseResponse({ ...req, reply: run.reply, creditsRemaining: run.creditsRemaining, replayed: false, proposal: run.proposal });
+  const text = req.kind === 'message' ? req.text! : openerPrompt(begin.conversation.mode);
+  const run = await runChargedTurn(deps, {
+    uid,
+    requestId: req.requestId,
+    conversationId: req.conversationId,
+    attempt: begin.attempt,
+    channel: 'text',
+    conversation: begin.conversation,
+    text,
+  });
+  return response({
+    requestId: req.requestId,
+    conversationId: req.conversationId,
+    reply: run.reply,
+    replyCreatedAtMs: run.replyCreatedAtMs,
+    ...(req.kind === 'message' ? { userText: req.text, userCreatedAtMs: begin.userCreatedAtMs ?? nowMs } : {}),
+    creditsRemaining: run.creditsRemaining,
+    periodKey: run.periodKey,
+    charged: begin.charged ? 1 : 0,
+    replayed: false,
+    proposal: run.proposal,
+  });
 }
 
-async function speak(deps: TurnDeps, uid: string, clientTurnId: string, text: string, wanted: boolean) {
-  if (!wanted) return { audioBase64: null, audioMimeType: null } as const;
+/** What the engine sees for a session the coach opens, so it greets rather than answering a message. */
+function openerPrompt(mode: ConversationState['mode']): string {
+  return mode === 'reflection'
+    ? '(The user opened a reflection on their recent check-ins and is waiting for you to start.)'
+    : '(The user opened a new coaching session and is waiting for you to start.)';
+}
+
+async function speak(deps: TurnDeps, uid: string, requestId: string, text: string, wanted: boolean) {
+  if (!wanted) return { replyAudio: null } as const;
   try {
     const audio = await deps.voice().synthesize(text);
-    return { audioBase64: audio.toString('base64'), audioMimeType: 'audio/mpeg' } as const;
+    return { replyAudio: { base64: audio.toString('base64'), mimeType: 'audio/mpeg' as const } };
   } catch {
-    // The coaching reply is already delivered as text; losing the audio isn't worth failing the turn.
-    deps.log('tts_failed', { uid, clientTurnId });
-    return { audioBase64: null, audioMimeType: null } as const;
+    // The reply is already delivered as text; losing the audio isn't worth failing the turn.
+    deps.log('tts_failed', { uid, requestId });
+    return { replyAudio: null } as const;
   }
 }
 
 export async function handleVoiceTurn(deps: TurnDeps, ctx: CallContext, data: unknown): Promise<VoiceTurnResponse> {
   const uid = requireUid(ctx);
   const req = parseVoiceTurnRequest(data);
-  const ids = { clientTurnId: req.clientTurnId, conversationId: req.conversationId };
+  const nowMs = deps.now();
   const begin = await beginTurn(deps.db, {
     uid,
-    ...ids,
+    requestId: req.requestId,
+    conversationId: req.conversationId,
     channel: 'voice',
-    inputHash: sha256(req.audio),
-    ...(req.mode ? { mode: req.mode } : {}),
+    charge: true,
+    inputHash: sha256(req.audioBytes),
     ...(req.reflectionCheckInId ? { reflectionCheckInId: req.reflectionCheckInId } : {}),
-    nowMs: deps.now(),
+    nowMs,
   });
 
   if (begin.kind === 'replay') {
     const reply = begin.turn.reply ?? '';
-    deps.log('turn_replayed', { uid, clientTurnId: req.clientTurnId, channel: 'voice' });
+    const transcript = begin.turn.transcript ?? '';
+    deps.log('turn_replayed', { uid, requestId: req.requestId, channel: 'voice' });
     return {
-      ...baseResponse({ ...ids, reply, creditsRemaining: begin.creditsRemaining, replayed: true, proposal: begin.turn.proposal }),
-      transcript: begin.turn.transcript ?? '',
-      ...(await speak(deps, uid, req.clientTurnId, reply, req.wantAudio !== false)),
+      ...response({
+        requestId: req.requestId,
+        conversationId: req.conversationId,
+        reply,
+        replyCreatedAtMs: begin.turn.replyCreatedAtMs ?? nowMs,
+        ...(transcript ? { userText: transcript, userCreatedAtMs: begin.turn.userCreatedAtMs ?? nowMs } : {}),
+        creditsRemaining: begin.creditsRemaining,
+        periodKey: begin.periodKey,
+        charged: 0,
+        replayed: true,
+        proposal: begin.turn.proposal,
+      }),
+      transcript,
+      ...(await speak(deps, uid, req.requestId, reply, req.wantAudio !== false)),
     };
   }
 
   let transcript: string;
   try {
-    transcript = (await deps.voice().transcribe(req.audio, req.mimeType)).trim();
+    transcript = (await deps.voice().transcribe(req.audioBytes, req.audio.mimeType)).trim();
   } catch {
-    const creditsRemaining = await failTurn(deps.db, { uid, clientTurnId: req.clientTurnId, attempt: begin.attempt });
-    deps.log('turn_failed', { uid, clientTurnId: req.clientTurnId, channel: 'voice', stage: 'stt' });
-    throw new CoachError('ai-unavailable', { creditsRemaining });
+    const remaining = await failTurn(deps.db, { uid, requestId: req.requestId, attempt: begin.attempt });
+    deps.log('turn_failed', { uid, requestId: req.requestId, channel: 'voice', stage: 'stt' });
+    throw new CoachError('provider-unavailable', { refunded: true, remaining });
   }
   if (!transcript) {
-    const creditsRemaining = await failTurn(deps.db, { uid, clientTurnId: req.clientTurnId, attempt: begin.attempt });
-    throw new CoachError('no-speech', { creditsRemaining });
+    const remaining = await failTurn(deps.db, { uid, requestId: req.requestId, attempt: begin.attempt });
+    throw new CoachError('no-speech', { refunded: true, remaining });
   }
   transcript = transcript.slice(0, 4000);
-  await recordVoiceUserMessage(deps.db, { uid, ...ids, transcript });
+  const spokenAt = deps.now();
+  await recordVoiceUserMessage(deps.db, { uid, requestId: req.requestId, conversationId: req.conversationId, transcript, nowMs: spokenAt });
 
-  const run = await runChargedTurn(deps, { uid, ...ids, attempt: begin.attempt, channel: 'voice', conversation: begin.conversation, text: transcript });
+  const run = await runChargedTurn(deps, {
+    uid,
+    requestId: req.requestId,
+    conversationId: req.conversationId,
+    attempt: begin.attempt,
+    channel: 'voice',
+    conversation: begin.conversation,
+    text: transcript,
+  });
   return {
-    ...baseResponse({ ...ids, reply: run.reply, creditsRemaining: run.creditsRemaining, replayed: false, proposal: run.proposal }),
+    ...response({
+      requestId: req.requestId,
+      conversationId: req.conversationId,
+      reply: run.reply,
+      replyCreatedAtMs: run.replyCreatedAtMs,
+      userText: transcript,
+      userCreatedAtMs: spokenAt,
+      creditsRemaining: run.creditsRemaining,
+      periodKey: run.periodKey,
+      charged: 1,
+      replayed: false,
+      proposal: run.proposal,
+    }),
     transcript,
-    ...(await speak(deps, uid, req.clientTurnId, run.reply, req.wantAudio !== false)),
+    ...(await speak(deps, uid, req.requestId, run.reply, req.wantAudio !== false)),
   };
 }
 

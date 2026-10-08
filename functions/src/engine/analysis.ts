@@ -55,7 +55,7 @@ export function buildAnalysisPrompt(text: string, ctx: CoachContextData): string
 // Deliberately broad: a false positive costs one gentle safety check, a miss costs far more.
 const CRISIS = [
   /\b(kill|hurt|harm|cut)\s+(myself|me)\b/i,
-  /\b(suicid|end (it all|my life)|take my (own )?life|want(ed)? to die|wish i (was|were) dead|better off dead|no reason to live|don'?t want to (be alive|live|wake up))/i,
+  /\b(suicid|end(ing)? (it all|my life)|take my (own )?life|want(ed)? to die|wish i (was|were) dead|better off dead|no reason to live|don'?t want to (be alive|live|wake up))/i,
   /\b(overdose|self[- ]?harm)\b/i,
   /\b(kill|hurt) (him|her|them|someone|people)\b/i,
   /\b(he|she|they|partner|husband|wife|boyfriend|girlfriend) (hits|beats|chokes|hurts) me\b/i,
@@ -89,6 +89,30 @@ const EMOTION_WORDS: [RegExp, string, 1 | 2 | 3][] = [
  * It is coarse on purpose; the model analysis is the real thing.
  */
 export function heuristicAnalysis(text: string, ctx: CoachContextData): TurnAnalysis {
+  if (text.startsWith('(The user opened')) {
+    const reflection = text.includes('reflection');
+    return {
+      emotions: [],
+      emotionalIntensity: 0,
+      topic: reflection ? 'recent check-ins' : 'session opening',
+      stage: 'opening',
+      intent: 'small_talk',
+      explicitAdviceRequest: false,
+      insightMoment: false,
+      commitmentStated: false,
+      resistance: false,
+      contradiction: null,
+      assumptions: [],
+      values: [],
+      keyPhrase: '',
+      risk: 'none',
+      relevantGoalIds: [],
+      useCheckIns: reflection,
+      useJournal: reflection,
+      referencesPastSession: false,
+      goalProgressReported: null,
+    };
+  }
   const lower = text.toLowerCase();
   const emotions: string[] = [];
   let intensity: 0 | 1 | 2 | 3 = 0;
