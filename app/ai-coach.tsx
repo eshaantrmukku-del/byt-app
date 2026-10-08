@@ -15,9 +15,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { buildTimeline, currentPeriodKey, isTurnSynced, nextResetLabel, shouldAutoTitle, sortConversations, type TimelineItem } from '@/features/chat/chat';
-import { COACH_TEXT_LIMIT } from '@/services/coach/types';
-import { discardMessage, requestOpener, retryMessage, sendMessage } from '@/services/coach/turns';
+import { buildTimeline, currentPeriodKey, isTurnSynced, nextResetLabel, sessionGreeting, shouldAutoTitle, sortConversations, type TimelineItem } from '@/features/chat/chat';
+import { COACH_TEXT_LIMIT, type GoalProgressProposal } from '@/services/coach/types';
+import { acceptGoalProposal, discardMessage, retryMessage, sendMessage } from '@/services/coach/turns';
 import { autoTitleConversation, createConversation, renameConversation, watchMessages } from '@/services/conversationsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore, usePendingTurnsStore } from '@/stores/chatStore';
@@ -49,7 +49,6 @@ export default function AiCoachScreen() {
 
   const conversation = conversations.items.find((c) => c.id === conversationId);
   const messagesState = useChatStore((s) => (conversationId ? s.messages[conversationId] : undefined));
-  const opener = useChatStore((s) => (conversationId ? s.openers[conversationId] : undefined));
   const allPending = usePendingTurnsStore((s) => s.turns);
   const pending = useMemo(
     () => allPending.filter((t) => t.conversationId === conversationId && t.uid === uid),
@@ -63,13 +62,6 @@ export default function AiCoachScreen() {
 
   const messages = useMemo(() => messagesState?.items ?? [], [messagesState]);
 
-  // Start a new session with a coach opener (free, generated once per conversation).
-  useEffect(() => {
-    if (!conversation || messagesState?.status !== 'ready') return;
-    if (messages.length > 0 || pending.length > 0 || opener) return;
-    void requestOpener(conversation);
-  }, [conversation, messagesState?.status, messages.length, pending.length, opener]);
-
   // Drop local copies once the server has stored both sides of a turn.
   useEffect(() => {
     pending.filter((t) => t.status === 'delivered' && isTurnSynced(t, messages)).forEach((t) => discardMessage(t.requestId));
@@ -77,10 +69,12 @@ export default function AiCoachScreen() {
 
   const timeline = useMemo(() => buildTimeline(messages, pending), [messages, pending]);
   const sending = pending.some((t) => t.status === 'sending');
-  const isTyping = sending || opener?.state === 'loading';
+  const isTyping = sending;
 
   const [inputText, setInputText] = useState('');
   const [noCredits, setNoCredits] = useState(false);
+  const [proposal, setProposal] = useState<{ conversationId: string; proposal: GoalProgressProposal } | null>(null);
+  const goals = useUserDataStore((s) => s.goals.items);
   const [renameVisible, setRenameVisible] = useState(false);
   const sendLock = useRef(false);
   const listRef = useRef<FlatList<TimelineItem>>(null);
@@ -102,6 +96,7 @@ export default function AiCoachScreen() {
     if (isFirstUserMessage && shouldAutoTitle(conversation)) autoTitleConversation(uid, conversation.id, text);
     try {
       const result = await sendMessage(uid, conversation, text);
+      if (result.ok && result.proposal) setProposal({ conversationId: conversation.id, proposal: result.proposal });
       if (!result.ok && result.reason === 'no-credits') {
         setNoCredits(true);
         setInputText(text);
@@ -114,6 +109,7 @@ export default function AiCoachScreen() {
   const handleRetry = (requestId: string) => {
     if (!conversation || sending) return;
     void retryMessage(requestId, conversation).then((r) => {
+      if (r.ok && r.proposal) setProposal({ conversationId: conversation.id, proposal: r.proposal });
       if (!r.ok && r.reason === 'no-credits') setNoCredits(true);
     });
   };
@@ -170,19 +166,12 @@ export default function AiCoachScreen() {
     <View style={styles.typing}>
       <Text style={styles.typingText}>Typing...</Text>
     </View>
-  ) : opener?.state === 'failed' && timeline.length === 0 ? (
-    <View style={[styles.messageWrap, styles.aiWrap]}>
-      <TouchableOpacity
-        style={[styles.messageBubble, styles.aiBubble]}
-        onPress={() => conversation && void requestOpener(conversation)}
-        accessibilityRole="button"
-      >
-        <Text style={[styles.messageText, { color: theme.text }]}>{opener.error} Tap to try again.</Text>
-      </TouchableOpacity>
-    </View>
   ) : null;
 
   const loading = !conversation || !messagesState || messagesState.status === 'loading';
+  const showGreeting = !loading && timeline.length === 0 && !isTyping && conversation;
+  const activeProposal = proposal?.conversationId === conversationId ? proposal.proposal : null;
+  const proposalGoal = activeProposal ? goals.find((g) => g.id === activeProposal.goalId) : undefined;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
@@ -234,7 +223,7 @@ export default function AiCoachScreen() {
         </View>
       ) : null}
 
-      <KeyboardAvoidingView style={styles.flex} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         {loading && conversations.status !== 'unavailable' ? (
           <View style={styles.center}>
             <ActivityIndicator color={theme.textSecondary} />
@@ -255,9 +244,52 @@ export default function AiCoachScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+            ListHeaderComponent={
+              showGreeting && conversation ? (
+                <View style={[styles.messageWrap, styles.aiWrap]}>
+                  <View style={[styles.messageBubble, styles.aiBubble]} accessibilityLabel="Coach greeting">
+                    <Text style={[styles.messageText, { color: theme.text }]}>{sessionGreeting(conversation.mode)}</Text>
+                  </View>
+                </View>
+              ) : null
+            }
             ListFooterComponent={listFooter}
           />
         )}
+
+        {activeProposal ? (
+          <View style={styles.proposalCard}>
+            <Text style={styles.proposalTitle}>
+              Set {proposalGoal?.title ?? 'this goal'} to {activeProposal.progress}%?
+            </Text>
+            {activeProposal.reason ? <Text style={styles.proposalReason}>{activeProposal.reason}</Text> : null}
+            <View style={styles.proposalActions}>
+              <TouchableOpacity
+                onPress={() => setProposal(null)}
+                style={styles.proposalDismiss}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss goal suggestion"
+              >
+                <Text style={styles.proposalDismissText}>Not now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (!uid || !activeProposal) return;
+                  const next = activeProposal;
+                  setProposal(null);
+                  void acceptGoalProposal(uid, next).then((result) => {
+                    if (result === 'missing') Alert.alert('Goal not found', 'That goal is no longer in your list.');
+                  });
+                }}
+                style={styles.proposalAccept}
+                accessibilityRole="button"
+                accessibilityLabel="Update goal progress"
+              >
+                <Text style={styles.proposalAcceptText}>Update</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.inputContainer}>
           <TextInput
@@ -366,4 +398,20 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
   },
   sendButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  proposalCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  proposalTitle: { color: theme.text, fontSize: 15, fontWeight: '700' },
+  proposalReason: { color: theme.textSecondary, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  proposalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
+  proposalDismiss: { paddingVertical: 8, paddingHorizontal: 12 },
+  proposalDismissText: { color: theme.textSecondary, fontWeight: '600' },
+  proposalAccept: { backgroundColor: theme.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14 },
+  proposalAcceptText: { color: '#fff', fontWeight: '700' },
 });

@@ -205,7 +205,7 @@ function GoalSheet({ uid, goal, onClose }: { uid: string | undefined; goal: Goal
     <Modal animationType="slide" transparent statusBarTranslucent visible onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <Pressable style={styles.modalBackdrop} onPress={onClose} accessibilityLabel="Close" />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalSheetWrap}>
+        <KeyboardAvoidingView behavior="padding" style={styles.modalSheetWrap}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{goal ? 'Edit Goal' : 'New Goal'}</Text>

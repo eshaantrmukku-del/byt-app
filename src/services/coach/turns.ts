@@ -1,20 +1,27 @@
+import { currentPeriodKey } from '@/features/chat/chat';
 import type { PendingTurn } from '@/features/chat/chat';
-import { useChatStore, usePendingTurnsStore } from '@/stores/chatStore';
+import { normaliseProgress } from '@/features/goals/goals';
+import { updateGoal } from '@/services/goalsService';
+import { usePendingTurnsStore } from '@/stores/chatStore';
 import { useCreditsStore } from '@/stores/creditsStore';
+import { useUserDataStore } from '@/stores/userDataStore';
 import type { Conversation } from '@/types/models';
 
-import { coachClient, newRequestId, openerRequestId } from './coachClient';
+import { coachClient, newRequestId } from './coachClient';
 import { toCoachError } from './errors';
-import type { CoachTurnResponse } from './types';
+import type { GoalProgressProposal } from './types';
 
-export type SendResult = { ok: true } | { ok: false; reason: 'no-credits' | 'failed'; message: string };
+export type SendResult =
+  | { ok: true; proposal?: GoalProgressProposal }
+  | { ok: false; reason: 'no-credits' | 'failed'; message: string };
 
-function applyCredits(response: CoachTurnResponse) {
+export function applyTurnCredits(creditsRemaining: number) {
   const current = useCreditsStore.getState().account;
   useCreditsStore.getState().setAccount({
     plan: current?.plan ?? 'standard',
-    creditsRemaining: response.credits.remaining,
-    creditsPeriodKey: response.credits.periodKey,
+    creditsRemaining,
+    creditsPeriodKey: current?.creditsPeriodKey || currentPeriodKey(),
+    ...(current?.monthlyAllowance !== undefined ? { monthlyAllowance: current.monthlyAllowance } : {}),
   });
 }
 
@@ -31,17 +38,16 @@ async function deliver(turn: PendingTurn, conversation: Conversation): Promise<S
   pending.upsert({ ...turn, status: 'sending', error: undefined });
   try {
     const response = await coachClient.coachTurn({
-      requestId: turn.requestId,
-      kind: 'message',
+      clientTurnId: turn.requestId,
       text: turn.text,
       ...target(conversation),
     });
-    applyCredits(response);
+    applyTurnCredits(response.creditsRemaining);
     pending.update(turn.requestId, {
       status: 'delivered',
-      reply: { text: response.reply.text, createdAt: response.reply.createdAt },
+      reply: { text: response.reply, createdAt: Date.now() },
     });
-    return { ok: true };
+    return { ok: true, ...(response.proposal ? { proposal: response.proposal } : {}) };
   } catch (error) {
     const coachError = toCoachError(error);
     if (coachError.reason === 'no-credits') {
@@ -69,7 +75,7 @@ export function sendMessage(uid: string, conversation: Conversation, text: strin
   return deliver(turn, conversation);
 }
 
-/** Retries a failed turn with the same request id, so the backend never charges twice. */
+/** Retries a failed turn with the same client turn id, so the backend never charges twice. */
 export function retryMessage(requestId: string, conversation: Conversation): Promise<SendResult> {
   const turn = usePendingTurnsStore.getState().turns.find((t) => t.requestId === requestId);
   if (!turn || turn.status === 'sending') return Promise.resolve({ ok: true });
@@ -80,29 +86,12 @@ export function discardMessage(requestId: string) {
   usePendingTurnsStore.getState().remove(requestId);
 }
 
-const openersInFlight = new Set<string>();
-
-/** Asks the coach to open a new session. Free, and at most once per conversation. */
-export async function requestOpener(conversation: Conversation): Promise<void> {
-  if (openersInFlight.has(conversation.id)) return;
-  openersInFlight.add(conversation.id);
-  const chat = useChatStore.getState();
-  chat.setOpener(conversation.id, { state: 'loading' });
-  try {
-    const response = await coachClient.coachTurn({
-      requestId: openerRequestId(conversation.id),
-      kind: 'opener',
-      ...target(conversation),
-    });
-    applyCredits(response);
-    useChatStore.getState().setOpener(conversation.id, null);
-  } catch (error) {
-    useChatStore.getState().setOpener(conversation.id, {
-      state: 'failed',
-      error: "I couldn't start the session just now.",
-    });
-    if (__DEV__) console.warn('[coach] opener failed:', toCoachError(error).reason);
-  } finally {
-    openersInFlight.delete(conversation.id);
-  }
+/** Applies a coach-suggested progress change after the user confirms it. Never automatic. */
+export async function acceptGoalProposal(uid: string, proposal: GoalProgressProposal): Promise<'updated' | 'missing'> {
+  const goal = useUserDataStore.getState().goals.items.find((g) => g.id === proposal.goalId);
+  if (!goal) return 'missing';
+  const progress = normaliseProgress(proposal.progress);
+  const status = progress === 100 ? 'completed' : goal.status === 'completed' ? 'active' : goal.status;
+  await updateGoal(uid, goal.id, { progress, status });
+  return 'updated';
 }

@@ -97,5 +97,6 @@ export function parseAccount(d: Data | undefined): Account | null {
     plan: d.plan === 'plus' ? 'plus' : 'standard',
     creditsRemaining: Math.max(0, Math.floor(d.creditsRemaining)),
     creditsPeriodKey: str(d.creditsPeriodKey),
+    ...(typeof d.monthlyAllowance === 'number' ? { monthlyAllowance: Math.max(0, Math.floor(d.monthlyAllowance)) } : {}),
   };
 }

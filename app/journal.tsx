@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -71,7 +70,7 @@ export default function JournalScreen() {
         </TouchableOpacity>
       </View>
 
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <ScrollView style={styles.flex} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
           <View style={styles.dateCard}>
             <Text style={styles.dateText}>

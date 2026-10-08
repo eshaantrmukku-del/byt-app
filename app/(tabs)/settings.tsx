@@ -14,11 +14,15 @@ import {
   UserRound,
   type LucideIcon,
 } from 'lucide-react-native';
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ACCOUNT_DELETION_URL } from '@/content/privacyPolicy';
 import { confirmLogout } from '@/features/session/confirmLogout';
+import { logOut } from '@/services/authService';
+import { coachClient } from '@/services/coach/coachClient';
+import { toCoachError } from '@/services/coach/errors';
 import { useCreditsStore } from '@/stores/creditsStore';
 import { usePreferencesStore, type PreferenceKey } from '@/stores/preferencesStore';
 import { useProfileStore } from '@/stores/profileStore';
@@ -85,9 +89,42 @@ export default function SettingsScreen() {
   const account = useCreditsStore((s) => s.account);
   const syncError = useSyncStore((s) => s.lastError);
 
-  const creditsRemaining = account?.creditsRemaining ?? MONTHLY_CREDIT_ALLOWANCE;
+  const [deleting, setDeleting] = useState(false);
+  const allowance = account?.monthlyAllowance && account.monthlyAllowance > 0 ? account.monthlyAllowance : MONTHLY_CREDIT_ALLOWANCE;
+  const creditsRemaining = account?.creditsRemaining ?? allowance;
   const resetLabel = nextResetLabel(account?.creditsPeriodKey || currentPeriodKey());
-  const usedPct = Math.min(100, Math.round(((MONTHLY_CREDIT_ALLOWANCE - creditsRemaining) / MONTHLY_CREDIT_ALLOWANCE) * 100));
+  const usedPct = Math.min(100, Math.max(0, Math.round(((allowance - creditsRemaining) / allowance) * 100)));
+
+  const deleteAccount = () => {
+    // Web alerts don't confirm, so keep the hosted request page there.
+    if (Platform.OS === 'web') {
+      void Linking.openURL(ACCOUNT_DELETION_URL);
+      return;
+    }
+    Alert.alert('Delete account & data', 'This permanently removes your account and stored data.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          if (deleting) return;
+          setDeleting(true);
+          void coachClient
+            .deleteAccount()
+            .then(() => logOut({ force: true }))
+            .catch((error: unknown) => {
+              const coachError = toCoachError(error);
+              if (coachError.reason === 'not-deployed' || coachError.reason === 'network') {
+                void Linking.openURL(ACCOUNT_DELETION_URL);
+                return;
+              }
+              Alert.alert('Couldn’t delete the account', coachError.message);
+            })
+            .finally(() => setDeleting(false));
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -129,7 +166,7 @@ export default function SettingsScreen() {
             <View style={styles.creditsHeader}>
               <Text style={styles.creditsLabel}>Remaining credits</Text>
               <Text style={styles.creditsValue}>
-                {creditsRemaining} / {MONTHLY_CREDIT_ALLOWANCE}
+                {creditsRemaining} / {allowance}
               </Text>
             </View>
             <View style={styles.progressBg}>
@@ -182,7 +219,7 @@ export default function SettingsScreen() {
             label="Delete account & data"
             hint="Request removal of your account and stored data"
             danger
-            onPress={() => void Linking.openURL(ACCOUNT_DELETION_URL)}
+            onPress={deleteAccount}
           />
         </View>
 

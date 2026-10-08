@@ -75,7 +75,7 @@ export default function EditProfileScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <TopBar title="Personal info" />
 
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"

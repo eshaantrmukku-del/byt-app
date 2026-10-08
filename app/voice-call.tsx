@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { coachClient, newRequestId } from '@/services/coach/coachClient';
 import { toCoachError } from '@/services/coach/errors';
-import { VOICE_MAX_DURATION_MS, type VoiceAudioMimeType, type VoiceTurnRequest } from '@/services/coach/types';
+import { acceptGoalProposal, applyTurnCredits } from '@/services/coach/turns';
+import { VOICE_MAX_DURATION_MS, type GoalProgressProposal, type VoiceAudioMimeType, type VoiceTurnRequest } from '@/services/coach/types';
 import { createConversation } from '@/services/conversationsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -47,6 +48,7 @@ export default function VoiceCallScreen() {
   const uid = useAuthStore((s) => s.user?.uid);
   const activeId = useChatStore((s) => s.activeConversationId);
   const conversations = useUserDataStore((s) => s.conversations.items);
+  const goals = useUserDataStore((s) => s.goals.items);
   const voiceEnabled = usePreferencesStore((s) => s.voiceInteraction);
 
   const [conversationId] = useState(() => params.id ?? activeId ?? (uid ? createConversation(uid) : null));
@@ -57,6 +59,7 @@ export default function VoiceCallScreen() {
   const [coachReply, setCoachReply] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [retryRequest, setRetryRequest] = useState<VoiceTurnRequest | null>(null);
+  const [proposal, setProposal] = useState<GoalProgressProposal | null>(null);
 
   const player = useRef<AudioPlayer | null>(null);
   const playbackFile = useRef<File | null>(null);
@@ -171,16 +174,12 @@ export default function VoiceCallScreen() {
     try {
       const response = await coachClient.voiceTurn(request);
       if (!callActive.current) return;
-      const account = useCreditsStore.getState().account;
-      useCreditsStore.getState().setAccount({
-        plan: account?.plan ?? 'standard',
-        creditsRemaining: response.credits.remaining,
-        creditsPeriodKey: response.credits.periodKey,
-      });
-      setCoachReply(response.reply.text);
-      if (response.replyAudio) {
+      applyTurnCredits(response.creditsRemaining);
+      setCoachReply(response.reply);
+      if (response.proposal) setProposal(response.proposal);
+      if (response.audioBase64) {
         try {
-          await playReply(response.replyAudio);
+          await playReply({ base64: response.audioBase64 });
         } catch {
           showToast("Couldn't play the coach's voice — the reply is shown above.");
           setCallState('idle');
@@ -259,11 +258,12 @@ export default function VoiceCallScreen() {
         return;
       }
       await sendTurn({
-        requestId: newRequestId(),
+        clientTurnId: newRequestId(),
         conversationId: conversation.id,
         mode: conversation.mode,
         ...(conversation.reflectionCheckInId ? { reflectionCheckInId: conversation.reflectionCheckInId } : {}),
-        audio: { base64, mimeType: MIME_TYPE, durationMs: Math.min(durationMs, VOICE_MAX_DURATION_MS) },
+        audioBase64: base64,
+        mimeType: MIME_TYPE,
         wantAudio: true,
       });
     } catch {
@@ -359,6 +359,32 @@ export default function VoiceCallScreen() {
           ) : (
             <Text style={styles.replyHint}>Your coach will respond here. Speak naturally — short turns work best.</Text>
           )}
+          {proposal && callState === 'idle' ? (
+            <View style={styles.proposalCard}>
+              <Text style={styles.proposalTitle}>
+                Set {goals.find((g) => g.id === proposal.goalId)?.title ?? 'this goal'} to {proposal.progress}%?
+              </Text>
+              {proposal.reason ? <Text style={styles.replyHint}>{proposal.reason}</Text> : null}
+              <View style={styles.proposalActions}>
+                <Pressable onPress={() => setProposal(null)} accessibilityRole="button" accessibilityLabel="Dismiss goal suggestion">
+                  <Text style={styles.endLinkText}>Not now</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (!uid) return;
+                    const next = proposal;
+                    setProposal(null);
+                    void acceptGoalProposal(uid, next);
+                  }}
+                  style={styles.retryButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Update goal progress"
+                >
+                  <Text style={styles.retryText}>Update</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
           {retryRequest && callState === 'idle' ? (
             <Pressable
               onPress={() => void sendTurn(retryRequest)}
@@ -414,7 +440,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(34,197,94,0.28)',
   },
   toastText: { color: theme.success, fontSize: 13, fontWeight: '600', textAlign: 'center' },
-  replyScroll: { maxHeight: 160, marginHorizontal: 28 },
+  replyScroll: { maxHeight: 220, marginHorizontal: 28 },
   replyScrollContent: { flexGrow: 1, justifyContent: 'flex-end', paddingBottom: 8, alignItems: 'center' },
   replyText: { color: theme.text, fontSize: 17, lineHeight: 26, textAlign: 'center' },
   replyHint: { color: theme.textMuted, fontSize: 15, lineHeight: 22, textAlign: 'center' },
@@ -422,4 +448,7 @@ const styles = StyleSheet.create({
   retryText: { color: theme.primary, fontWeight: '700' },
   endLink: { alignItems: 'center', paddingVertical: 20, paddingBottom: 28 },
   endLinkText: { color: theme.textSecondary, fontSize: 15, fontWeight: '500' },
+  proposalCard: { marginTop: 16, alignItems: 'center', gap: 6 },
+  proposalTitle: { color: theme.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  proposalActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
 });

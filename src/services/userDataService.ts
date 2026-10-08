@@ -14,6 +14,7 @@ import { friendlyError } from '@/features/auth/authErrors';
 import { parseAccount, parseCheckIn, parseConversation, parseGoal, parseJournalEntry } from '@/features/parse';
 import { requireFirebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
+import { coachClient } from '@/services/coach/coachClient';
 import { useCreditsStore } from '@/stores/creditsStore';
 import { useUserDataStore, type CollectionKey } from '@/stores/userDataStore';
 
@@ -91,11 +92,25 @@ export function watchUserData(uid: string): () => void {
     watch('conversations', userCollection(uid, 'conversations'), parseConversation),
     onSnapshot(
       doc(requireFirebase().db, 'users', uid, 'private', 'account'),
-      (snap) => useCreditsStore.getState().setAccount(parseAccount(snap.data())),
+      (snap) => {
+        const parsed = parseAccount(snap.data());
+        // A missing doc is normal until getAccount creates it. Don't wipe a value that call just set.
+        if (parsed) useCreditsStore.getState().setAccount(parsed);
+      },
       // Credits are optional until the backend exists; a read failure just leaves them unknown.
       () => useCreditsStore.getState().setAccount(null)
     ),
   ];
+
+  // Creates the account doc lazily (150 credits) once the callable is deployed.
+  void coachClient.getAccount().then((account) => {
+    useCreditsStore.getState().setAccount({
+      plan: account.plan,
+      creditsRemaining: account.creditsRemaining,
+      creditsPeriodKey: account.creditsPeriodKey,
+      monthlyAllowance: account.monthlyAllowance,
+    });
+  }).catch(() => undefined);
 
   return () => stops.forEach((stop) => stop());
 }

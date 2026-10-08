@@ -1,59 +1,92 @@
 /**
  * Callable contract for the BYT coaching backend.
- * Source of truth: internal/coach-api-contract.md (Project store). Keep in sync.
+ * Source of truth: internal/coach-api-contract.md (backend, v1). Keep in sync.
  */
-import type { ConversationMode, IsoDate } from '@/types/models';
+import type { ConversationMode, IsoDate, Plan } from '@/types/models';
 
 export const COACH_TEXT_LIMIT = 4000;
-export const VOICE_MAX_DURATION_MS = 60_000;
-export const VOICE_MAX_BASE64_LENGTH = 2_800_000;
+/** Recorded clip limit from the contract: 90 seconds, 6 MB decoded. */
+export const VOICE_MAX_DURATION_MS = 90_000;
+export const VOICE_MAX_BYTES = 6_000_000;
 
-type TurnTarget = {
-  /** /^[A-Za-z0-9_-]{8,64}$/ — unique per user turn, reused when retrying it. */
-  requestId: string;
+/** Firestore ids and client turn ids: 1–64 chars from this set. */
+export const COACH_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+export type VoiceAudioMimeType =
+  | 'audio/m4a'
+  | 'audio/mp4'
+  | 'audio/aac'
+  | 'audio/mpeg'
+  | 'audio/wav'
+  | 'audio/webm'
+  | 'audio/ogg';
+
+export type CoachTurnRequest = {
   conversationId: string;
-  mode: ConversationMode;
+  /** Reuse this exact id when retrying the same user turn. */
+  clientTurnId: string;
+  /** 1–4000 characters after trim. */
+  text: string;
+  mode?: ConversationMode;
   reflectionCheckInId?: IsoDate;
 };
 
-export type CoachTurnRequest = TurnTarget &
-  ({ kind: 'message'; text: string } | { kind: 'opener'; text?: undefined });
-
-export type VoiceAudioMimeType = 'audio/mp4' | 'audio/m4a' | 'audio/aac' | 'audio/webm' | 'audio/wav';
-
-export type VoiceTurnRequest = TurnTarget & {
-  audio: { base64: string; mimeType: VoiceAudioMimeType; durationMs: number };
-  wantAudio?: boolean;
+export type GoalProgressProposal = {
+  goalId: string;
+  progress: number;
+  reason: string;
 };
 
-export type CoachMessagePayload = { id: string; text: string; createdAt: number };
-
 export type CoachTurnResponse = {
-  requestId: string;
+  ok: true;
+  clientTurnId: string;
   conversationId: string;
+  userMessageId: string;
+  coachMessageId: string;
+  reply: string;
+  creditsRemaining: number;
   replayed: boolean;
-  userMessage: CoachMessagePayload | null;
-  reply: CoachMessagePayload;
-  credits: { remaining: number; periodKey: string; charged: 0 | 1 };
+  proposal?: GoalProgressProposal;
+};
+
+export type VoiceTurnRequest = {
+  conversationId: string;
+  clientTurnId: string;
+  audioBase64: string;
+  mimeType: VoiceAudioMimeType;
+  mode?: ConversationMode;
+  reflectionCheckInId?: IsoDate;
+  /** Default true. False asks for a text reply only. */
+  wantAudio?: boolean;
 };
 
 export type VoiceTurnResponse = CoachTurnResponse & {
   transcript: string;
-  replyAudio: { base64: string; mimeType: 'audio/mpeg' } | null;
+  audioBase64: string | null;
+  audioMimeType: 'audio/mpeg' | null;
 };
 
+export type AccountSnapshot = {
+  plan: Plan;
+  creditsRemaining: number;
+  monthlyAllowance: number;
+  creditsPeriodKey: string;
+  resetsAt: number;
+};
+
+/** Reasons the backend puts on `HttpsError.details.reason`, plus client-only ones. */
 export type CoachErrorReason =
+  | 'unauthenticated'
+  | 'invalid-input'
+  | 'turn-id-reused'
   | 'no-credits'
   | 'rate-limited'
-  | 'in-progress'
-  | 'provider-unavailable'
+  | 'turn-in-progress'
+  | 'ai-unavailable'
   | 'no-speech'
-  | 'invalid-request'
-  | 'text-too-long'
-  | 'audio-too-long'
-  | 'conversation-not-found'
-  | 'check-in-not-found'
-  | 'unauthenticated'
+  | 'not-configured'
+  | 'app-check'
+  | 'internal'
   | 'not-deployed'
   | 'network'
   | 'unknown';

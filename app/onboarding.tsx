@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -72,7 +71,7 @@ export default function OnboardingScreen() {
     <View style={styles.container}>
       <LinearGradient colors={authTheme.gradient} style={StyleSheet.absoluteFill} />
       <SafeAreaView style={styles.flex}>
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={styles.flex} behavior="padding">
           <ScrollView
             contentContainerStyle={styles.scroll}
             keyboardShouldPersistTaps="handled"

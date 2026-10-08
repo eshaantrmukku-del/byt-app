@@ -125,11 +125,11 @@ export type ConversationDoc = {
 export type MessageRole = 'user' | 'coach';
 export type MessageChannel = 'text' | 'voice';
 
-/** Written by the backend only: `{requestId}` for the user turn, `{requestId}_reply` for the coach. */
+/** Written by the backend only: `{clientTurnId}-u` for the user turn, `{clientTurnId}-c` for the coach. */
 export type MessageDoc = {
   role: MessageRole;
   text: string;
-  /** Client-generated request id shared with the backend turn (idempotent credit charging). */
+  /** Client-generated turn id shared with the backend (idempotent credit charging). */
   clientTurnId: string;
   channel: MessageChannel;
   createdAt: ServerTime;
@@ -144,6 +144,8 @@ export type AccountDoc = {
   creditsRemaining: number;
   /** YYYY-MM; credits reset lazily when the period changes. */
   creditsPeriodKey: string;
+  /** Credits granted at the start of the period. 150 until the server says otherwise. */
+  monthlyAllowance?: number;
 };
 
 export type TurnStatus = 'pending' | 'completed' | 'failed';
@@ -168,7 +170,7 @@ export type CheckIn = Omit<CheckInDoc, 'createdAt' | 'updatedAt'> & Timestamps &
 
 export type JournalEntry = { id: string; date: IsoDate; text: string } & Timestamps;
 
-export type Account = Pick<AccountDoc, 'plan' | 'creditsRemaining' | 'creditsPeriodKey'>;
+export type Account = Pick<AccountDoc, 'plan' | 'creditsRemaining' | 'creditsPeriodKey' | 'monthlyAllowance'>;
 
 export type Conversation = {
   id: string;

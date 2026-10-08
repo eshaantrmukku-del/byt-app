@@ -29,7 +29,3 @@ export function confirmLogout(message: string) {
     { text: 'Log out', style: 'destructive', onPress: () => void run(false) },
   ]);
 }
-
-export function showCoachComingSoon() {
-  Alert.alert('Coming soon', 'Your AI coach arrives in the next build.');
-}

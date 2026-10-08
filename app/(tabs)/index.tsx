@@ -33,7 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { computeStreaks } from '@/features/checkIns/checkIns';
 import { localDateKey } from '@/features/dates';
 import { CATEGORY_LABELS } from '@/features/goals/goals';
-import { confirmLogout, showCoachComingSoon } from '@/features/session/confirmLogout';
+import { confirmLogout } from '@/features/session/confirmLogout';
 import { useCreditsStore } from '@/stores/creditsStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useUserDataStore } from '@/stores/userDataStore';
@@ -130,7 +130,7 @@ export default function HomeScreen() {
                 <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
                   <Text style={styles.menuSectionHeader}>TOOLS</Text>
                   <MenuItem icon={CheckCircle} color="#60A5FA" bg="rgba(59,130,246,0.16)" label="Daily Check-In" onPress={go(() => router.push('/check-in'))} />
-                  <MenuItem icon={Brain} color="#A78BFA" bg="rgba(124,58,237,0.16)" label="Chat with AI" onPress={go(showCoachComingSoon)} />
+                  <MenuItem icon={Brain} color="#A78BFA" bg="rgba(124,58,237,0.16)" label="Chat with AI" onPress={go(() => router.push('/chats'))} />
                   <MenuItem icon={TrendingUp} color="#22D3EE" bg="rgba(34,211,238,0.16)" label="My Goals" onPress={go(() => router.push('/goals'))} />
                   <MenuItem icon={Sparkles} color="#FBBF24" bg="rgba(245,158,11,0.16)" label="Reflect Now" onPress={go(() => router.push('/check-in'))} />
 
@@ -214,7 +214,7 @@ export default function HomeScreen() {
             <CheckCircle size={20} color={theme.primary} />
             <Text style={styles.actionText}>Set Goal</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={showCoachComingSoon} accessibilityRole="button">
+          <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/ai-coach')} accessibilityRole="button">
             <MessageSquare size={20} color={theme.primary} />
             <Text style={styles.actionText}>Chat with AI</Text>
           </TouchableOpacity>
