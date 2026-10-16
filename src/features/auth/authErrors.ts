@@ -20,12 +20,18 @@ const FIRESTORE_MESSAGES: Record<string, string> = {
   'deadline-exceeded': 'This is taking too long. Check your connection and try again.',
 };
 
-function codeOf(error: unknown): string | null {
+export function codeOf(error: unknown): string | null {
   if (typeof error === 'object' && error !== null && 'code' in error) {
     const code = (error as { code: unknown }).code;
     return typeof code === 'string' ? code : null;
   }
   return null;
+}
+
+/** True when live rules rejected the read. That is not a connectivity failure. */
+export function isPermissionDenied(error: unknown): boolean {
+  const code = codeOf(error)?.replace(/^firestore\//, '');
+  return code === 'permission-denied';
 }
 
 /** User-facing message for an auth or Firestore error. Never echoes raw error text. */

@@ -40,6 +40,33 @@ export function isCurrentSchema(data: DocData | undefined): boolean {
   return data?.schemaVersion === PROFILE_SCHEMA_VERSION;
 }
 
+/**
+ * Profile fields from whatever is already stored on users/{uid}.
+ * Schema v2 is read as-is. A prototype document is shown from its own fields
+ * (including coachProfile) without waiting for an upgrade write.
+ */
+export function readStoredProfile(data: DocData): UserProfile {
+  if (isCurrentSchema(data)) return parseProfile(data);
+  const upgraded = buildLegacyUpgrade(data, {
+    displayName: str(data, 'displayName'),
+    email: str(data, 'email'),
+  });
+  return {
+    displayName: upgraded.displayName,
+    dateOfBirth: upgraded.dateOfBirth,
+    profession: upgraded.profession,
+    goalsSummary: upgraded.goalsSummary,
+    income: upgraded.income,
+    lifestyle: upgraded.lifestyle,
+    struggles: upgraded.struggles,
+    coachNotes: upgraded.coachNotes,
+    email: upgraded.email,
+    // The old app's flag means they already finished setup, even if a later
+    // upgrade would still want a couple of empty fields filled in.
+    onboardingCompleted: data.onboardingCompleted === true || upgraded.onboardingCompleted,
+  };
+}
+
 /** Tolerant read of a schema-v2 profile document into app state. */
 export function parseProfile(data: DocData): UserProfile {
   const dob = data.dateOfBirth;

@@ -28,15 +28,18 @@ describe('decideProfileSnapshot (cloud-first hydration)', () => {
     expect(decideProfileSnapshot({ exists: false, fromCache: false, data: undefined })).toEqual({ kind: 'create' });
   });
 
-  it('upgrades a prototype-era document instead of replacing it', () => {
-    const legacy = { displayName: 'Sam', coachProfile: { profession: 'Student' }, goals: [] };
-    expect(decideProfileSnapshot({ exists: true, fromCache: false, data: legacy })).toEqual({ kind: 'upgrade' });
-  });
-
-  it('does not act on a cached legacy document', () => {
-    expect(decideProfileSnapshot({ exists: true, fromCache: true, data: { displayName: 'Sam' } })).toEqual({
-      kind: 'wait',
-    });
+  it('shows a prototype document immediately and upgrades it only from the server', () => {
+    const legacy = { displayName: 'Sam', email: 'sam@example.com', coachProfile: { profession: 'Student' }, goals: [] };
+    const server = decideProfileSnapshot({ exists: true, fromCache: false, data: legacy });
+    expect(server.kind).toBe('ready');
+    if (server.kind === 'ready') {
+      expect(server.upgrade).toBe(true);
+      expect(server.profile.displayName).toBe('Sam');
+      expect(server.profile.profession).toBe('Student');
+    }
+    const cached = decideProfileSnapshot({ exists: true, fromCache: true, data: legacy });
+    expect(cached.kind).toBe('ready');
+    expect(cached).not.toHaveProperty('upgrade');
   });
 
   it('reads a schema-v2 profile from cache or server', () => {

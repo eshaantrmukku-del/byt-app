@@ -13,7 +13,7 @@ import { useSyncStore } from '@/stores/syncStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 
 import { createProfileIfAbsent, profileRef, upgradeLegacyProfile } from './profileService';
-import { watchUserData } from './userDataService';
+import { applyLegacyAccount, watchUserData } from './userDataService';
 
 const PROFILE_TIMEOUT_MS = 15_000;
 const OFFLINE_MESSAGE = 'Can’t reach BYT right now. Check your connection and try again.';
@@ -67,12 +67,11 @@ function watchProfile(user: User) {
       switch (decision.kind) {
         case 'ready':
           useProfileStore.getState().setReady(uid, decision.profile);
+          applyLegacyAccount(uid, snap.data());
+          if (decision.upgrade) runOnce(() => upgradeLegacyProfile(uid, identityFor(user)));
           break;
         case 'create':
           runOnce(() => createProfileIfAbsent(uid, identityFor(user)));
-          break;
-        case 'upgrade':
-          runOnce(() => upgradeLegacyProfile(uid, identityFor(user)));
           break;
         case 'wait':
           break;
@@ -137,8 +136,9 @@ export function startSession(): () => void {
       return;
     }
     useAuthStore.getState().setUser({ uid: user.uid, email: user.email ?? '', displayName: user.displayName });
-    watchProfile(user);
+    // Begin the collections first so a synchronous profile snapshot can fill them.
     stopData = watchUserData(user.uid);
+    watchProfile(user);
   });
   return () => {
     unsubscribeAuth();

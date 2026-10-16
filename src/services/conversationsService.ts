@@ -10,7 +10,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 
-import { friendlyError } from '@/features/auth/authErrors';
+import { friendlyError, isPermissionDenied } from '@/features/auth/authErrors';
 import { CONVERSATION_TITLE_LIMIT, DEFAULT_TITLES, titleFromMessage } from '@/features/chat/chat';
 import { parseMessage } from '@/features/parse';
 import { requireFirebase } from '@/lib/firebase';
@@ -95,6 +95,16 @@ export function watchMessages(uid: string, conversationId: string): () => void {
     },
     (error) => {
       const current = useChatStore.getState().messages[conversationId];
+      // Messages copied off the user document stay visible when the messages
+      // subcollection is still denied.
+      if (isPermissionDenied(error)) {
+        useChatStore.getState().setMessages(conversationId, {
+          status: 'ready',
+          items: current?.items ?? [],
+          error: null,
+        });
+        return;
+      }
       useChatStore.getState().setMessages(conversationId, {
         status: 'unavailable',
         items: current?.items ?? [],

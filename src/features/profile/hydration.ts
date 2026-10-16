@@ -1,6 +1,6 @@
 import type { UserProfile } from '@/types/models';
 
-import { isCurrentSchema, parseProfile } from './profileDoc';
+import { isCurrentSchema, readStoredProfile } from './profileDoc';
 
 export type ProfileSnapshotInput = {
   exists: boolean;
@@ -10,9 +10,7 @@ export type ProfileSnapshotInput = {
 };
 
 export type ProfileSnapshotDecision =
-  | { kind: 'ready'; profile: UserProfile }
-  /** Prototype-era document: add schema-v2 fields, never replace existing ones. */
-  | { kind: 'upgrade' }
+  | { kind: 'ready'; profile: UserProfile; upgrade?: boolean }
   /** The server confirmed there is no profile: create one if it is still absent. */
   | { kind: 'create' }
   /** Absence not confirmed by the server (offline / cache): do nothing and keep waiting. */
@@ -27,8 +25,9 @@ export function decideProfileSnapshot(snap: ProfileSnapshotInput): ProfileSnapsh
   if (!snap.exists || !snap.data) {
     return snap.fromCache ? { kind: 'wait' } : { kind: 'create' };
   }
-  if (!isCurrentSchema(snap.data)) {
-    return snap.fromCache ? { kind: 'wait' } : { kind: 'upgrade' };
-  }
-  return { kind: 'ready', profile: parseProfile(snap.data) };
+  // An existing account is shown immediately. A prototype document is still
+  // upgraded once the server confirms it, but that write must not block the app.
+  const profile = readStoredProfile(snap.data);
+  if (!isCurrentSchema(snap.data) && !snap.fromCache) return { kind: 'ready', profile, upgrade: true };
+  return { kind: 'ready', profile };
 }

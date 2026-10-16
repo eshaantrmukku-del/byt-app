@@ -10,11 +10,13 @@ import {
   type QuerySnapshot,
 } from 'firebase/firestore';
 
-import { friendlyError } from '@/features/auth/authErrors';
+import { friendlyError, isPermissionDenied } from '@/features/auth/authErrors';
 import { parseAccount, parseCheckIn, parseConversation, parseGoal, parseJournalEntry } from '@/features/parse';
+import { legacyAccount, legacyChats, legacyCheckIns, legacyGoals, legacyJournal } from '@/features/profile/legacyAccount';
 import { requireFirebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
 import { coachClient } from '@/services/coach/coachClient';
+import { useChatStore } from '@/stores/chatStore';
 import { useCreditsStore } from '@/stores/creditsStore';
 import { useUserDataStore, type CollectionKey } from '@/stores/userDataStore';
 
@@ -36,13 +38,40 @@ function rows<T>(snap: QuerySnapshot<DocumentData>, parse: (id: string, d: Docum
 }
 
 /** Subscribes to the user's goals, check-ins, journal and credits. Returns an unsubscribe. */
+/**
+ * Shows goals, check-ins, journal, chats and credits that the prototype saved
+ * on the user document itself. Live rules still deny the new subcollections,
+ * and getAccount is not deployed, so this document is the account.
+ */
+export function applyLegacyAccount(uid: string, data: DocumentData | undefined): void {
+  if (!data) return;
+  const store = useUserDataStore.getState();
+  store.setItems(uid, 'goals', legacyGoals(data), 'legacy');
+  store.setItems(uid, 'checkIns', legacyCheckIns(data), 'legacy');
+  store.setItems(uid, 'journal', legacyJournal(data), 'legacy');
+  const chats = legacyChats(data);
+  store.setItems(uid, 'conversations', chats.map((chat) => chat.conversation), 'legacy');
+  for (const chat of chats) {
+    const existing = useChatStore.getState().messages[chat.conversation.id];
+    if (existing?.status === 'ready' && existing.items.length > 0) continue;
+    useChatStore.getState().setMessages(chat.conversation.id, { status: 'ready', items: chat.messages, error: null });
+  }
+  const account = legacyAccount(data);
+  if (account && !useCreditsStore.getState().account) useCreditsStore.getState().setAccount(account);
+}
+
 export function watchUserData(uid: string): () => void {
   const store = useUserDataStore.getState();
   store.begin(uid);
-  useCreditsStore.getState().reset();
 
   const onError = (key: CollectionKey) => (error: unknown) => {
     if (useAuthStore.getState().signingOut) return;
+    // Rules that have not been deployed deny subcollections. The user document
+    // still holds the account, so this is not "can't reach BYT".
+    if (isPermissionDenied(error)) {
+      useUserDataStore.getState().markReachable(uid, key);
+      return;
+    }
     useUserDataStore.getState().setUnavailable(uid, key, friendlyError(error, OFFLINE_MESSAGE));
   };
 
@@ -54,7 +83,13 @@ export function watchUserData(uid: string): () => void {
   ) => {
     let confirmed = false;
     const timer = setTimeout(() => {
-      if (!confirmed) useUserDataStore.getState().setUnavailable(uid, key, OFFLINE_MESSAGE);
+      if (confirmed) return;
+      const current = useUserDataStore.getState()[key];
+      if (current.origin === 'legacy' || current.items.length > 0) {
+        useUserDataStore.getState().markReachable(uid, key);
+        return;
+      }
+      useUserDataStore.getState().setUnavailable(uid, key, OFFLINE_MESSAGE);
     }, LOAD_TIMEOUT_MS);
     const unsubscribe = onSnapshot(
       q,
@@ -94,11 +129,12 @@ export function watchUserData(uid: string): () => void {
       doc(requireFirebase().db, 'users', uid, 'private', 'account'),
       (snap) => {
         const parsed = parseAccount(snap.data());
-        // A missing doc is normal until getAccount creates it. Don't wipe a value that call just set.
+        // A missing doc is normal until getAccount creates it. Don't wipe credits
+        // already read from the user document.
         if (parsed) useCreditsStore.getState().setAccount(parsed);
       },
-      // Credits are optional until the backend exists; a read failure just leaves them unknown.
-      () => useCreditsStore.getState().setAccount(null)
+      // Live rules deny private/account until they are deployed. Keep the prototype balance.
+      () => undefined
     ),
   ];
 
