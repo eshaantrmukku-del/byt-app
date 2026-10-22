@@ -37,11 +37,10 @@ function rows<T>(snap: QuerySnapshot<DocumentData>, parse: (id: string, d: Docum
     .filter((x): x is T => x !== null);
 }
 
-/** Subscribes to the user's goals, check-ins, journal and credits. Returns an unsubscribe. */
 /**
  * Shows goals, check-ins, journal, chats and credits that the prototype saved
- * on the user document itself. Live rules still deny the new subcollections,
- * and getAccount is not deployed, so this document is the account.
+ * on the user document itself. They stay visible next to any subcollection rows
+ * until getAccount has copied them across (see functions/src/legacy).
  */
 export function applyLegacyAccount(uid: string, data: DocumentData | undefined): void {
   if (!data) return;
@@ -60,6 +59,7 @@ export function applyLegacyAccount(uid: string, data: DocumentData | undefined):
   if (account && !useCreditsStore.getState().account) useCreditsStore.getState().setAccount(account);
 }
 
+/** Subscribes to the user's goals, check-ins, journal and credits. Returns an unsubscribe. */
 export function watchUserData(uid: string): () => void {
   const store = useUserDataStore.getState();
   store.begin(uid);
@@ -128,6 +128,7 @@ export function watchUserData(uid: string): () => void {
     onSnapshot(
       doc(requireFirebase().db, 'users', uid, 'private', 'account'),
       (snap) => {
+        if (snap.data()?.legacyImport) useUserDataStore.getState().setLegacyImported(uid);
         const parsed = parseAccount(snap.data());
         // A missing doc is normal until getAccount creates it. Don't wipe credits
         // already read from the user document.
@@ -138,8 +139,10 @@ export function watchUserData(uid: string): () => void {
     ),
   ];
 
-  // Creates the account doc lazily (150 credits) once the callable is deployed.
+  // Creates the account doc lazily (150 credits) and copies a prototype account
+  // into the subcollections once. Nothing waits on it: it may not be deployed yet.
   void coachClient.getAccount().then((account) => {
+    if (account.legacyImported) useUserDataStore.getState().setLegacyImported(uid);
     useCreditsStore.getState().setAccount({
       plan: account.plan,
       creditsRemaining: account.creditsRemaining,

@@ -72,9 +72,27 @@ service cloud.firestore {
         && stampedOnCreate(d);
     }
 
+    // Validates only the fields this write changes, so a prototype-era value the
+    // app never touches (an empty name, say) can't lock the owner out of every save.
+    // Removing a field fails here too: it is "changed" but no longer in d.
+    function validProfileChanges(d) {
+      let c = changed();
+      return (!('schemaVersion' in c) || d.schemaVersion == 2)
+        && (!('displayName' in c) || isText(d.displayName, 1, 60))
+        && (!('email' in c) || isText(d.email, 0, 254))
+        && (!('dateOfBirth' in c) || d.dateOfBirth == null || isIsoDate(d.dateOfBirth))
+        && (!('profession' in c) || isText(d.profession, 0, 120))
+        && (!('goalsSummary' in c) || isText(d.goalsSummary, 0, 1000))
+        && (!('income' in c) || isText(d.income, 0, 120))
+        && (!('lifestyle' in c) || isText(d.lifestyle, 0, 1000))
+        && (!('struggles' in c) || isText(d.struggles, 0, 1000))
+        && (!('coachNotes' in c) || isText(d.coachNotes, 0, 2000))
+        && (!('onboardingCompleted' in c) || d.onboardingCompleted is bool);
+    }
+
     function validProfileUpdate(d) {
       return changed().hasOnly(profileKeys())
-        && validProfileFields(d)
+        && validProfileChanges(d)
         && d.updatedAt == request.time
         // createdAt is set once (legacy documents may not have it yet).
         && (!('createdAt' in resource.data) || d.createdAt == resource.data.createdAt)

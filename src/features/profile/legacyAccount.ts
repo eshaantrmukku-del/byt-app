@@ -16,6 +16,18 @@ function list(value: unknown): Data[] {
   return value.map(asRecord).filter((item): item is Data => item !== null);
 }
 
+const CALLABLE_ID = /^[A-Za-z0-9_-]{8,64}$/;
+
+/**
+ * Must match legacyDocId in functions/src/legacy/importLegacy.ts: the backend
+ * copies these rows into subcollections under the same ids.
+ */
+export function legacyDocId(raw: string): string {
+  const id = raw.trim();
+  if (CALLABLE_ID.test(id)) return id;
+  return `legacy_${id.replace(/[^A-Za-z0-9_-]/g, '_')}`.slice(0, 64);
+}
+
 function clampMetric(value: unknown, fallback: number): number {
   const n = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : fallback;
   return Math.min(10, Math.max(1, n));
@@ -56,7 +68,7 @@ export function legacyGoals(data: Data | undefined): Goal[] {
     const id = str(goal.id).trim();
     if (!title || !id) return [];
     const progress = typeof goal.progress === 'number' && Number.isFinite(goal.progress) ? Math.min(100, Math.max(0, Math.round(goal.progress))) : 0;
-    return [{ id, title, category: categoryOf(goal.category), status: statusOf(goal.status), progress, createdAt: index, updatedAt: index }];
+    return [{ id: legacyDocId(id), title, category: categoryOf(goal.category), status: statusOf(goal.status), progress, createdAt: index, updatedAt: index }];
   });
 }
 
@@ -79,7 +91,7 @@ export function legacyCheckIns(data: Data | undefined): CheckIn[] {
       happiness,
       stress: clampMetric(raw.stress, 5),
       sleep: clampMetric(raw.sleep, 5),
-      ...(str(raw.reflection) ? { reflection: str(raw.reflection) } : {}),
+      ...(str(raw.reflection) || str(raw.notes) ? { reflection: str(raw.reflection) || str(raw.notes) } : {}),
       ...(str(raw.win) ? { win: str(raw.win) } : {}),
       createdAt,
       updatedAt: createdAt,
@@ -95,7 +107,7 @@ export function legacyJournal(data: Data | undefined): JournalEntry[] {
     const date = dateKey(entry.date);
     if (!text || !id || !date) return [];
     const createdAt = Date.parse(str(entry.date)) || 0;
-    return [{ id, date, text, createdAt, updatedAt: createdAt }];
+    return [{ id: legacyDocId(id), date, text, createdAt, updatedAt: createdAt }];
   });
 }
 
@@ -104,11 +116,12 @@ export type LegacyChat = { conversation: Conversation; messages: ChatMessage[] }
 /** Chats embedded on the prototype user document. Empty placeholder sessions are skipped. */
 export function legacyChats(data: Data | undefined): LegacyChat[] {
   return list(data?.chats).flatMap((chat) => {
-    const id = str(chat.id).trim();
-    if (!id) return [];
+    const rawId = str(chat.id).trim();
+    if (!rawId) return [];
+    const id = legacyDocId(rawId);
     const messages: ChatMessage[] = list(chat.messages).flatMap((message) => {
       const text = str(message.text).trim();
-      const messageId = str(message.id).trim();
+      const messageId = str(message.id).trim() ? legacyDocId(str(message.id)) : '';
       const role: MessageRole | null = message.sender === 'ai' ? 'coach' : message.sender === 'user' ? 'user' : null;
       if (!text || !messageId || !role) return [];
       const createdAt = typeof message.timestamp === 'number' ? message.timestamp : 0;

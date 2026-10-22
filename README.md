@@ -41,12 +41,19 @@ npm run verify              # env check + typecheck + lint + unit tests
 npm run test:rules          # Firestore rules in the emulator (needs Java 21+)
 ```
 
-## Deploy Firestore rules
+## Deploy (functions first, then rules)
 
 ```bash
 npx firebase login
+npx firebase deploy --only functions --project ascend-9d17e
 npm run deploy:rules        # firestore.rules + indexes → ascend-9d17e
 ```
+
+Functions go first. `getAccount` copies a prototype account (goals, check-ins,
+journal and chats stored as arrays on `users/{uid}`) into the v2 subcollections
+once, without changing `users/{uid}`. Open the app once after the functions
+deploy, before the rules deploy, so the import has run. The new rules also stop the old Play
+build from saving, because it rewrites the whole user document.
 
 ## Safety
 

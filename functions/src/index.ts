@@ -79,8 +79,9 @@ export const voiceTurn = onCall(
 );
 
 export const getAccount = onCall(
-  { ...base, timeoutSeconds: 15 },
-  wrap((req) => handleGetAccount(deps, { uid: req.auth?.uid })),
+  // Long enough for the one-time import of a large prototype account.
+  { ...base, timeoutSeconds: 60 },
+  wrap((req) => handleGetAccount(deps, { uid: req.auth?.uid }, req.data)),
 );
 
 export const deleteAccount = onCall(

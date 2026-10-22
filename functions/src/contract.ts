@@ -61,6 +61,8 @@ export type AccountResponse = {
   monthlyAllowance: number;
   creditsPeriodKey: string;
   resetsAt: number;
+  /** True once any prototype data on users/{uid} has been copied into the v2 collections. */
+  legacyImported: boolean;
 };
 
 /** Reasons the app's toCoachError() understands. */

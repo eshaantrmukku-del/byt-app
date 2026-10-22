@@ -56,6 +56,8 @@ export type AccountSnapshot = {
   monthlyAllowance: number;
   creditsPeriodKey: string;
   resetsAt: number;
+  /** True once prototype data on users/{uid} has been copied into the v2 collections. */
+  legacyImported: boolean;
 };
 
 /** `details.reason` values from the contract, plus client-only transport failures. */

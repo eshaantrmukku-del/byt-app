@@ -143,7 +143,9 @@ export const coachClient: CoachClient = {
     return { ...turn, transcript: typeof d.transcript === 'string' ? d.transcript : '', replyAudio };
   },
   getAccount: async () => {
-    const data = await invoke<Record<string, never>, unknown>('getAccount', {}, ACCOUNT_TIMEOUT_MS, false);
+    // The device zone puts prototype check-ins on the same calendar day the app shows.
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const data = await invoke<{ timeZone?: string }, unknown>('getAccount', timeZone ? { timeZone } : {}, ACCOUNT_TIMEOUT_MS, false);
     const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
     if (typeof d.creditsRemaining !== 'number' || typeof d.creditsPeriodKey !== 'string') throw new CoachError('unknown');
     return {
@@ -152,6 +154,7 @@ export const coachClient: CoachClient = {
       monthlyAllowance: typeof d.monthlyAllowance === 'number' ? d.monthlyAllowance : 150,
       creditsPeriodKey: d.creditsPeriodKey,
       resetsAt: typeof d.resetsAt === 'number' ? d.resetsAt : 0,
+      legacyImported: d.legacyImported === true,
     };
   },
   deleteAccount: async () => {

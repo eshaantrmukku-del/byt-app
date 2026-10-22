@@ -1,0 +1,56 @@
+{
+  "displayName": "Eshaan",
+  "email": "owner@example.com",
+  "onboardingCompleted": true,
+  "coachProfile": {
+    "dateOfBirth": "2005-03-15",
+    "age": "",
+    "profession": "Student",
+    "goalsSummary": "Ship BYT and get into university",
+    "income": "",
+    "lifestyleNotes": "Early mornings, gym three times a week",
+    "struggles": "Procrastination",
+    "coachNotes": "Be direct with me"
+  },
+  "subscriptionPlan": "standard",
+  "creditsRemaining": 120,
+  "creditsPeriodKey": "2026-10",
+  "goals": [
+    { "id": "1759400000000", "title": "Run a 5k", "category": "Fitness", "status": "Active", "progress": 40, "type": "active" },
+    { "id": "1759500000000", "title": "Read daily", "category": "Learning", "status": "Completed", "progress": 100 },
+    { "id": "g/3", "title": "Apply to university", "category": "Career", "status": "Stuck", "progress": 10 }
+  ],
+  "checkIns": [
+    { "id": "1759931000000", "date": "2026-10-07T08:00:00.000Z", "mood": "energized", "notes": "", "energy": 8, "happiness": 8, "stress": 3, "sleep": 7, "reflection": "Good day", "win": "Shipped" },
+    { "id": "1759966200000", "date": "2026-10-08T23:30:00.000Z", "mood": "Tired", "notes": "Late night", "energy": 4, "happiness": 4, "stress": 7, "sleep": 5, "reflection": "", "win": "" }
+  ],
+  "journalEntries": [
+    { "id": "1759932000000", "date": "2026-10-07T08:20:00.000Z", "text": "Noted the first real user feedback." }
+  ],
+  "chats": [
+    { "id": "1", "title": "Coaching session", "messages": [], "createdAt": 1, "updatedAt": 1, "mode": "normal", "openingComplete": false },
+    {
+      "id": "1759940000000",
+      "title": "Monday",
+      "messages": [
+        { "id": "1759940000001", "text": "Hello", "sender": "user", "timestamp": 1759940000001 },
+        { "id": "1759940000002", "text": "Hi there. What is on your mind?", "sender": "ai", "timestamp": 1759940000002 }
+      ],
+      "createdAt": 1759940000000,
+      "updatedAt": 1759940000002,
+      "mode": "normal",
+      "titleManuallyEdited": true
+    },
+    {
+      "id": "c2",
+      "title": "Reflection",
+      "messages": [
+        { "id": "m1", "text": "Why was I so tired?", "sender": "user", "timestamp": 1759970000000 }
+      ],
+      "createdAt": 1759970000000,
+      "updatedAt": 1759970000000,
+      "mode": "reflection",
+      "reflectionContext": { "date": "2026-10-08T23:30:00.000Z" }
+    }
+  ]
+}

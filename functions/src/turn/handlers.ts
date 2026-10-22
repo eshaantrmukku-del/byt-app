@@ -17,6 +17,7 @@ import { nextPeriodStart } from '../credits/period.js';
 import { runCoachingEngine, type EngineOptions } from '../engine/engine.js';
 import type { EngineResult } from '../engine/types.js';
 import { CoachError } from '../errors.js';
+import { importLegacyAccount } from '../legacy/importLegacy.js';
 import type { LlmClient } from '../llm/types.js';
 import { parseCoachTurnRequest, parseVoiceTurnRequest } from '../validation.js';
 import type { VoiceProvider } from '../voice/types.js';
@@ -285,15 +286,31 @@ export async function handleVoiceTurn(deps: TurnDeps, ctx: CallContext, data: un
   };
 }
 
-export async function handleGetAccount(deps: Pick<TurnDeps, 'db' | 'now'>, ctx: CallContext): Promise<AccountResponse> {
+export async function handleGetAccount(
+  deps: Pick<TurnDeps, 'db' | 'now' | 'log'>,
+  ctx: CallContext,
+  data?: unknown,
+): Promise<AccountResponse> {
   const uid = requireUid(ctx);
   const nowMs = deps.now();
   const account = await getOrCreateAccount(deps.db, uid, nowMs);
+  // A prototype account is copied into the v2 collections once. A failure is retried
+  // on the next call and never blocks the balance.
+  const timeZone = (data as { timeZone?: unknown } | null | undefined)?.timeZone;
+  let legacyImported = false;
+  try {
+    const result = await importLegacyAccount(deps.db, uid, { timeZone, nowMs });
+    legacyImported = true;
+    if (result.status === 'imported') deps.log('legacy_imported', { uid, created: result.created, skipped: result.skipped });
+  } catch (error) {
+    deps.log('legacy_import_failed', { uid, name: (error as Error)?.name });
+  }
   return {
     plan: account.plan,
     creditsRemaining: account.creditsRemaining,
     monthlyAllowance: MONTHLY_ALLOWANCE[account.plan],
     creditsPeriodKey: account.creditsPeriodKey,
     resetsAt: nextPeriodStart(nowMs),
+    legacyImported,
   };
 }
