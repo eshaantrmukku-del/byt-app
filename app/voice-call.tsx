@@ -137,7 +137,13 @@ export default function VoiceCallScreen() {
     return () => {
       callActive.current = false;
       if (autoStop.current) clearTimeout(autoStop.current);
-      if (recorder.isRecording) void recorder.stop().catch(() => undefined);
+      // useAudioRecorder releases the native recorder in its own cleanup, which runs
+      // before this one; touching a released recorder throws. Release stops it anyway.
+      try {
+        if (recorder.isRecording) void recorder.stop().catch(() => undefined);
+      } catch {
+        // Already released.
+      }
       releasePlayback();
     };
     // Mount/unmount only.
