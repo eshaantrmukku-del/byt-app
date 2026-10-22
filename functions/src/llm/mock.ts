@@ -50,7 +50,7 @@ function hint<T>(req: LlmRequest, key: string): T | undefined {
 
 function coachReply(req: LlmRequest): string {
   const isRetry = req.messages.length > 1 && /broke BYT coaching rules/.test(req.messages[req.messages.length - 1]!.text);
-  const analysis = hint<{ keyPhrase?: string; emotions?: string[]; assumptions?: string[] }>(req, 'analysis') ?? {};
+  const analysis = hint<{ keyPhrase?: string; emotions?: string[]; assumptions?: string[]; innerCritic?: string | null; pattern?: string | null }>(req, 'analysis') ?? {};
   const phrase = (analysis.keyPhrase ?? '').split(/\s+/).slice(-6).join(' ');
   const quoted = phrase ? `"${phrase}"` : 'What you just said';
   const emotion = analysis.emotions?.[0] ?? 'a lot';
@@ -61,6 +61,17 @@ function coachReply(req: LlmRequest): string {
     safety:
       "I'm really glad you told me. I'm an AI coach, so I can't keep you safe the way a person can. If you might act on these thoughts, please call your local emergency number, or Samaritans on 116 123 in the UK, or 988 in the US. Are you safe right now?",
     open_session: `Hi${name ? ` ${name.split(' ')[0]}` : ''}. What would be most useful to talk about today?`,
+    design_alliance: "I'm glad you're here. Before we start, how would you like me to be with you: more direct, more gentle, or somewhere in between?",
+    clearing: `That's a lot, and I'm hearing ${emotion} in it. What else is in there?`,
+    bottom_line: "There's a lot in that. What's the heart of it for you?",
+    offer_intuition: `I might be off here, but I notice ${analysis.pattern ?? 'the same thing keeps coming up'}. Does that fit?`,
+    explore_values: 'Underneath the options, what matters most to you here?',
+    explore_perspectives: "That's one way of seeing it. If you looked at this from five years on, what else might you see?",
+    name_inner_critic: `There's a voice saying "${analysis.innerCritic ?? phrase}". What is it trying to protect you from?`,
+    brainstorm: "Let's build some options together. What ideas have you already half-had? I'll add a couple after yours.",
+    make_request: "I have a request that stretches this a little: double it this week. You can say yes, no, or make a counter-offer.",
+    acknowledge: 'You did what you said you would, and that took persistence. What did you learn about yourself doing it?',
+    close_with_inquiry: 'Thanks for going there today. Something to carry this week: what are you choosing when you choose the safe option?',
     acknowledge_and_explore: `That sounds hard, and I'm hearing ${emotion} in it. What feels most important to say about it right now?`,
     reflect_and_deepen: `${quoted} — there seems to be a lot under that. What do you notice in yourself when you think about it?`,
     powerful_question: 'If this felt unstuck a month from now, what would be different?',

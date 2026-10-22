@@ -291,6 +291,11 @@ describe('subcollections', () => {
     await assertFails(getDoc(doc(dbFor(BOB), 'users/alice/private/account')));
     await assertFails(updateDoc(doc(dbFor(ALICE), 'users/alice/private/account'), { creditsRemaining: 9999 }));
     await assertFails(setDoc(doc(dbFor(ALICE), 'users/alice/private/other'), { plan: 'plus' }));
+    // The coach's memory of them (alliance, commitments) is theirs to read, the server's to write.
+    await seed('users/alice/private/coach', { alliance: ['be direct'], commitments: [] });
+    await assertSucceeds(getDoc(doc(dbFor(ALICE), 'users/alice/private/coach')));
+    await assertFails(getDoc(doc(dbFor(BOB), 'users/alice/private/coach')));
+    await assertFails(setDoc(doc(dbFor(ALICE), 'users/alice/private/coach'), { alliance: ['anything'] }));
     await assertSucceeds(getDoc(doc(dbFor(ALICE), 'users/alice/turns/t1')));
     await assertFails(setDoc(doc(dbFor(ALICE), 'users/alice/turns/t2'), { status: 'completed' }));
   });

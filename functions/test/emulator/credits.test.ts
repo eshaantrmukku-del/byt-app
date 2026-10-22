@@ -349,3 +349,29 @@ describe('voice', () => {
     expect(TOKEN_RESERVE).toBeGreaterThan(0);
   });
 });
+
+describe('coach memory', () => {
+  it('remembers a commitment in one conversation and closes it when they report back in the next', async () => {
+    const user = uid();
+    const first = await conversation(user, 'conv0001');
+    const commit = message(user, first, "I'll send two applications on Friday.");
+    await handleCoachTurn(deps(firestore), { uid: user }, commit);
+    const memory = (await firestore.doc(`users/${user}/private/coach`).get()).data();
+    expect(memory?.commitments).toEqual([expect.objectContaining({ id: commit.requestId, when: 'on Friday', status: 'open', conversationId: first })]);
+
+    const second = await conversation(user, 'conv0002');
+    const result = await handleCoachTurn(deps(firestore), { uid: user }, message(user, second, 'Update: I sent both applications yesterday.'));
+    expect(result.reply.text).toMatch(/persistence/);
+    const after = (await firestore.doc(`users/${user}/private/coach`).get()).data();
+    expect(after?.commitments).toEqual([expect.objectContaining({ id: commit.requestId, status: 'kept' })]);
+  });
+
+  it('asks how they want to be coached once, and keeps what they say', async () => {
+    const user = uid();
+    const conversationId = await conversation(user);
+    await handleCoachTurn(deps(firestore), { uid: user }, { requestId: `opener_${conversationId}`, conversationId, kind: 'opener', mode: 'normal' });
+    expect((await firestore.doc(`users/${user}/private/coach`).get()).data()?.allianceAskedAt).toBe(NOW);
+    await handleCoachTurn(deps(firestore), { uid: user }, message(user, conversationId, 'Please be more direct with me.'));
+    expect((await firestore.doc(`users/${user}/private/coach`).get()).data()?.alliance).toEqual(['be more direct with me']);
+  });
+});

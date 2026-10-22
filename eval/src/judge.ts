@@ -1,3 +1,4 @@
+import { EVAL_RUBRIC } from '../../functions/src/engine/framework.js';
 import { checkReply, hasBlocking, type GuardInput } from '../../functions/src/engine/guard.js';
 import type { GuardIssue, MovePlan } from '../../functions/src/engine/types.js';
 import { parseJson, type LlmClient } from '../../functions/src/llm/types.js';
@@ -25,17 +26,8 @@ export type TurnForJudge = {
   issues: GuardIssue[];
 };
 
-const RUBRIC = `Score a coaching conversation from 1 (poor) to 5 (strong) on each dimension. Quote a short phrase as evidence. Be strict: generic advice, lists, "you should", praise and profile recitation score 1 or 2 on Advice discipline, Autonomy and Co-Active alignment.
-- Listening: responds to what was actually said.
-- Curiosity: genuine open questions, not an interrogation.
-- Awareness: helps the person see something they had not named.
-- Challenge: names an assumption or contradiction with care, or rightly holds back.
-- Autonomy: the person keeps the decision.
-- Action: moves toward a step only when it fits, in the person's words.
-- Context: uses background quietly; never recites the profile.
-- Conversation quality: natural, short, one question.
-- Advice discipline: no unsolicited advice dump. If they asked, options not orders.
-- Co-Active alignment: the person is treated as resourceful and whole.`;
+const RUBRIC = `You judge coaching against the Co-Active model. Score the conversation from 1 (poor) to 5 (strong) on each dimension and quote a short phrase as evidence. Be strict: a technically fine reply that is bad coaching is a failure. Generic advice, lists, "you should", praise, "why" questions, yes/no questions while exploring, hunches stated as facts, requests without room to say no, and profile recitation score 1 or 2 on the dimensions they affect.
+${Object.entries(EVAL_RUBRIC).map(([dimension, text]) => `- ${dimension}: ${text}`).join('\n')}`;
 
 const JUDGE_SCHEMA = {
   type: 'object',

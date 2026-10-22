@@ -1,7 +1,10 @@
 import type { CoachContextData, CoachingStage, TurnAnalysis, UserIntent } from './types.js';
+import { openCommitments } from './memory.js';
 
 const STAGES: CoachingStage[] = ['opening', 'exploring', 'awareness', 'wants', 'options', 'commitment', 'accountability', 'closing'];
-const INTENTS: UserIntent[] = ['share', 'vent', 'ask_advice', 'ask_info', 'report_progress', 'decide', 'small_talk', 'push_back', 'other'];
+const INTENTS: UserIntent[] = ['share', 'vent', 'ask_advice', 'ask_info', 'report_progress', 'decide', 'small_talk', 'push_back', 'closing', 'other'];
+const OUTCOMES = ['kept', 'partial', 'missed'] as const;
+const ENERGY = ['low', 'steady', 'rising'] as const;
 
 export const ANALYSIS_SCHEMA = {
   type: 'object',
@@ -30,23 +33,45 @@ export const ANALYSIS_SCHEMA = {
       required: ['goalId', 'progress'],
       description: 'Only if the user clearly reports concrete progress on a listed goal; estimated new progress %. Else null.',
     },
+    innerCritic: { type: ['string', 'null'], description: "A harsh self-judging voice in their words (\"I'm not smart enough\", \"who am I to\"), near-quoted; else null" },
+    storytelling: { type: 'boolean', description: 'A long narrative full of detail with little about what it means to them' },
+    pattern: { type: ['string', 'null'], description: 'A theme, feeling or behaviour that keeps coming back across this conversation (or the previous session), with the evidence; else null. Only with real evidence.' },
+    singlePerspective: { type: 'boolean', description: 'They see only one way to view it, or a forced either/or' },
+    wantsIdeas: { type: 'boolean', description: 'They ask for ideas or options to consider (not a verdict on what to do)' },
+    progressOutcome: { type: ['string', 'null'], description: 'If reporting back on something they committed to: "kept", "partial" or "missed"; else null' },
+    commitment: {
+      type: ['object', 'null'],
+      properties: { action: { type: 'string' }, when: { type: ['string', 'null'] } },
+      required: ['action', 'when'],
+      description: 'The concrete action they just committed to, in their words, and when (as they said it); else null',
+    },
+    playingSmall: { type: 'boolean', description: 'Their commitment or ambition is clearly smaller than what they said they want' },
+    resolvedCommitmentId: { type: ['string', 'null'], description: 'If they report on one of the listed open commitments, its id; else null' },
+    allianceNote: { type: ['string', 'null'], description: 'If they say how they want to be coached (more direct, gentler, fewer questions, challenge me), a short note in their terms; else null' },
+    energy: { type: 'string', enum: [...ENERGY], description: 'The energy behind the words: low (flat, heavy), steady, rising (lit up, eager)' },
+    unspoken: { type: ['string', 'null'], description: 'Something that seems present but unsaid (a feeling, fear or want), as a tentative hunch; else null' },
   },
   required: [
     'emotions', 'emotionalIntensity', 'topic', 'stage', 'intent', 'explicitAdviceRequest', 'insightMoment',
     'commitmentStated', 'resistance', 'contradiction', 'assumptions', 'values', 'keyPhrase', 'risk',
     'relevantGoalIds', 'useCheckIns', 'useJournal', 'referencesPastSession', 'goalProgressReported',
+    'innerCritic', 'storytelling', 'pattern', 'singlePerspective', 'wantsIdeas', 'progressOutcome', 'commitment',
+    'playingSmall', 'resolvedCommitmentId', 'allianceNote', 'energy', 'unspoken',
   ],
 } as const;
 
-export const ANALYSIS_SYSTEM = `You analyse one turn of a private coaching conversation so a coach can decide how to respond. You do not reply to the user. Read the recent conversation and the latest user message, then fill in the JSON fields accurately and conservatively. Prefer the user's own words. Mark explicitAdviceRequest only for direct requests. Mark risk "crisis" for any mention of wanting to die, self-harm, harming others, abuse or immediate danger, even if phrased casually.`;
+export const ANALYSIS_SYSTEM = `You analyse one turn of a private coaching conversation so a coach can decide how to respond. You do not reply to the user. Listen the way a skilled coach does: to their words and meaning, to the feeling and values underneath, and to the whole field (energy, hesitation, what they keep circling, what is left unsaid). Then fill in the JSON fields accurately and conservatively. Prefer the user's own words. Mark explicitAdviceRequest only for direct requests for what to do; a request for ideas or options is wantsIdeas. Only name a pattern with evidence from more than one message. Mark risk "crisis" for any mention of wanting to die, self-harm, harming others, abuse or immediate danger, even if phrased casually.`;
 
 export function buildAnalysisPrompt(text: string, ctx: CoachContextData): string {
   const recent = ctx.history.slice(-8).map((m) => `${m.role === 'user' ? 'User' : 'Coach'}: ${m.text}`).join('\n');
   const goals = ctx.goals.filter((g) => g.status !== 'completed').map((g) => `- [${g.id}] ${g.title} (${g.progress}%)`).join('\n');
+  const commitments = openCommitments(ctx.memory).map((c) => `- [${c.id}] ${c.text}${c.when ? ` (by ${c.when})` : ''}`).join('\n');
   return [
+    ctx.previousSessionSummary ? `Previous session (summary):\n${ctx.previousSessionSummary}` : '',
     ctx.summary ? `Earlier in this conversation (summary):\n${ctx.summary}` : '',
     recent ? `Recent messages:\n${recent}` : 'This is the first message of the conversation.',
     goals ? `User's goals:\n${goals}` : 'User has no goals listed.',
+    commitments ? `Open commitments they made earlier:\n${commitments}` : '',
     `Conversation mode: ${ctx.mode === 'reflection' ? 'reflecting on recent check-ins' : 'normal'}`,
     `Latest user message:\n"""${text}"""`,
   ].filter(Boolean).join('\n\n');
@@ -65,7 +90,30 @@ export function detectCrisis(text: string): boolean {
   return CRISIS.some((re) => re.test(text));
 }
 
-const ADVICE = /\b(what should i|should i\b|what do i do|what would you do|tell me what to do|give me (some )?(advice|tips|ideas|steps)|any (advice|tips|ideas)|how (do|can|should) i\b|what('s| is) the best way)/i;
+const ADVICE = /\b(what should i|should i\b|what do i do|what would you do|tell me what to do|give me (some )?(advice|tips|steps)|any (advice|tips)|how (do|can|should) i\b|what('s| is) the best way)/i;
+const IDEAS = /\b(any ideas|ideas (for|on|about)|give me (some )?ideas|brainstorm|what are (some|my) options|help me (think of|come up with)|ways (to|i could))\b/i;
+const CRITIC = /\b(i'?m (just |so )?(not (good|smart|clever|talented|strong|brave) enough|stupid|useless|a fraud|an idiot|pathetic|terrible at \w+|bad at \w+)|who am i to|i always (mess|screw|fuck) (it|things|everything) up|i'?ll never be (good|enough|able))/i;
+const ONE_WAY = /\b(the only (way|option|choice)|no other (way|option|choice)|i (either|have to either)\b.*\bor\b|there'?s no (other )?way (out|round|around))/i;
+const ALLIANCE = /\b(be (more |a bit more )?(direct|blunt|honest|gentle|gentler|tough|tougher|harsh|harder) (with|on) me|(don'?t|stop) (sugar-?coat|being so (soft|nice)|asking so many questions)|push me|challenge me|call me out|less questions|fewer questions|just listen)\b/i;
+const CLOSING = /^\s*(ok(ay)?[,.]?\s+)?(thanks|thank you|cheers|ta)\b.*\b(go|later|bye|tomorrow|night|helpful|enough|for now)\b|^\s*(i (have|need|got) to go|gotta go|got to go|talk (later|soon|tomorrow)|bye|good ?night)\b/i;
+const WHEN = /\b(today|tonight|tomorrow|this (morning|afternoon|evening|week|weekend)|next week|on (monday|tuesday|wednesday|thursday|friday|saturday|sunday)|(monday|tuesday|wednesday|thursday|friday|saturday|sunday)|by \w+|before \w+)\b/i;
+const MISSED = /\b(i didn'?t|i did not|i couldn'?t|i never (did|got)|i forgot|didn'?t (manage|get round|happen))\b/i;
+const PARTIAL = /\b(some of|half|only (did|managed|sent)|partly|not all)\b/i;
+const STOPWORDS = new Set('about after again always because before being could doing every feels going having maybe never other really right something still their there thing things think those through today would yeah which while where what when just like know want'.split(' '));
+
+/** A content word the person keeps returning to across three or more of their messages. */
+function recurringTheme(text: string, history: CoachContextData['history']): string | null {
+  const messages = [...history.filter((m) => m.role === 'user').map((m) => m.text), text];
+  if (messages.length < 3) return null;
+  const counts = new Map<string, number>();
+  for (const m of messages) {
+    for (const w of new Set(m.toLowerCase().match(/[a-z']{5,}/g) ?? [])) {
+      if (!STOPWORDS.has(w)) counts.set(w, (counts.get(w) ?? 0) + 1);
+    }
+  }
+  const [word, n] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
+  return n >= 3 ? `"${word}" keeps coming up` : null;
+}
 const COMMIT = /\b(i('ll| will)|i'm going to|i am going to|i commit|my plan is to|tomorrow i|this week i)\b/i;
 const INSIGHT = /\b(i (just )?(realis|realiz)e|oh[,.!]? (i|so)|i think i('ve| have) (just )?(seen|noticed|got it)|i never (noticed|saw|thought)|that's it[.!]|actually,? (it'?s|i'?m) (not|really))/i;
 const RESIST = /\b(doesn'?t (really )?work|won'?t work|pointless|waste of time|stop asking|just answer|you don'?t get it|not helpful|i don'?t want to talk about)/i;
@@ -111,6 +159,7 @@ export function heuristicAnalysis(text: string, ctx: CoachContextData): TurnAnal
       useJournal: reflection,
       referencesPastSession: false,
       goalProgressReported: null,
+      ...QUIET_SIGNALS,
     };
   }
   const lower = text.toLowerCase();
@@ -130,6 +179,10 @@ export function heuristicAnalysis(text: string, ctx: CoachContextData): TurnAnal
   const resistance = RESIST.test(text);
   const progress = PROGRESS.test(text);
   const greeting = GREETING.test(text.trim());
+  const closing = CLOSING.test(text) && !advice;
+  const critic = text.match(CRITIC)?.[0] ?? null;
+  const outcome = progress ? (MISSED.test(text) ? 'missed' : PARTIAL.test(text) ? 'partial' : 'kept') : null;
+  const open = openCommitments(ctx.memory);
   const assumptions = ASSUME.test(text) ? [text.match(ASSUME)![0]] : [];
   const coachTurns = ctx.history.filter((m) => m.role === 'coach').length;
 
@@ -141,6 +194,7 @@ export function heuristicAnalysis(text: string, ctx: CoachContextData): TurnAnal
 
   let intent: UserIntent = 'share';
   if (greeting) intent = 'small_talk';
+  else if (closing) intent = 'closing';
   else if (advice) intent = 'ask_advice';
   else if (progress) intent = 'report_progress';
   else if (resistance) intent = 'push_back';
@@ -179,11 +233,43 @@ export function heuristicAnalysis(text: string, ctx: CoachContextData): TurnAnal
     useJournal: /\bjournal|wrote|writing\b/i.test(text),
     referencesPastSession: /\b(last time|we talked|you asked|i said i'?d|as i mentioned)\b/i.test(text),
     goalProgressReported: null,
+    innerCritic: critic,
+    storytelling: words.length > 150 && intensity <= 1,
+    pattern: recurringTheme(text, ctx.history),
+    singlePerspective: ONE_WAY.test(text),
+    wantsIdeas: IDEAS.test(text),
+    progressOutcome: outcome,
+    commitment: commitment ? { action: text.trim().slice(0, 160), when: text.match(WHEN)?.[0] ?? null } : null,
+    playingSmall: false,
+    resolvedCommitmentId: outcome && open.length === 1 ? open[0]!.id : null,
+    allianceNote: ALLIANCE.test(text) ? text.match(ALLIANCE)![0] : null,
+    energy: intensity >= 2 || /\b(tired|flat|meh|whatever)\b/i.test(text) ? 'low' : /\b(excited|can'?t wait|buzzing|finally)\b|!/i.test(text) ? 'rising' : 'steady',
+    unspoken: null,
   };
 }
 
+const QUIET_SIGNALS = {
+  innerCritic: null,
+  storytelling: false,
+  pattern: null,
+  singlePerspective: false,
+  wantsIdeas: false,
+  progressOutcome: null,
+  commitment: null,
+  playingSmall: false,
+  resolvedCommitmentId: null,
+  allianceNote: null,
+  energy: 'steady',
+  unspoken: null,
+} as const satisfies Partial<TurnAnalysis>;
+
 /** Coerces model output into a valid analysis, filling gaps from the heuristic one. */
-export function normaliseAnalysis(raw: unknown, fallback: TurnAnalysis, validGoalIds: ReadonlySet<string>): TurnAnalysis {
+export function normaliseAnalysis(
+  raw: unknown,
+  fallback: TurnAnalysis,
+  validGoalIds: ReadonlySet<string>,
+  validCommitmentIds: ReadonlySet<string> = new Set(),
+): TurnAnalysis {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const str = (v: unknown, d: string) => (typeof v === 'string' ? v.slice(0, 200) : d);
   const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
@@ -216,5 +302,31 @@ export function normaliseAnalysis(raw: unknown, fallback: TurnAnalysis, validGoa
     useJournal: bool(r.useJournal, fallback.useJournal),
     referencesPastSession: bool(r.referencesPastSession, fallback.referencesPastSession),
     goalProgressReported,
+    innerCritic: nullableStr(r.innerCritic, fallback.innerCritic),
+    storytelling: bool(r.storytelling, fallback.storytelling),
+    pattern: nullableStr(r.pattern, fallback.pattern),
+    singlePerspective: bool(r.singlePerspective, fallback.singlePerspective),
+    wantsIdeas: bool(r.wantsIdeas, fallback.wantsIdeas),
+    progressOutcome: OUTCOMES.includes(r.progressOutcome as never) ? (r.progressOutcome as TurnAnalysis['progressOutcome']) : r.progressOutcome === null ? null : fallback.progressOutcome,
+    commitment: readCommitment(r.commitment, fallback.commitment),
+    playingSmall: bool(r.playingSmall, fallback.playingSmall),
+    resolvedCommitmentId:
+      typeof r.resolvedCommitmentId === 'string' && validCommitmentIds.has(r.resolvedCommitmentId) ? r.resolvedCommitmentId : fallback.resolvedCommitmentId,
+    allianceNote: nullableStr(r.allianceNote, fallback.allianceNote),
+    energy: ENERGY.includes(r.energy as never) ? (r.energy as TurnAnalysis['energy']) : fallback.energy,
+    unspoken: nullableStr(r.unspoken, fallback.unspoken),
   };
+}
+
+/** A string field the model may leave null; a missing field keeps the fallback. */
+function nullableStr(v: unknown, d: string | null): string | null {
+  if (typeof v === 'string') return v.trim() ? v.trim().slice(0, 200) : null;
+  return v === null ? null : d;
+}
+
+function readCommitment(v: unknown, d: TurnAnalysis['commitment']): TurnAnalysis['commitment'] {
+  if (v === null) return null;
+  const c = v as { action?: unknown; when?: unknown } | undefined;
+  if (!c || typeof c.action !== 'string' || !c.action.trim()) return d;
+  return { action: c.action.trim().slice(0, 160), when: typeof c.when === 'string' && c.when.trim() ? c.when.trim().slice(0, 60) : null };
 }

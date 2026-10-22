@@ -7,6 +7,21 @@ const LIST_LINE = /^\s*(?:[-*•‣▪]|\d+[.)]|[a-z][.)])\s+/m;
 const MARKDOWN = /\*\*|__|^#{1,6}\s|`/m;
 const HUMAN_CLAIM = /\b(when i was (younger|your age|a)|i('ve| have) been there|in my experience as a (person|human)|i remember when i|my (wife|husband|kids|family|childhood))\b/i;
 const META = /\b(co-?active|powerful question|as your (ai )?coach,? i('m| am) going to|coaching (model|technique|framework))\b/i;
+const WHY_QUESTION = /(^|[.!?]\s+|,\s*)(but |and |so )?why\b[^.!?]*\?/i;
+const CLOSED_START = /^(do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|shall|am)\b/i;
+const LEADING = /\bhave you (considered|thought about|tried)\b|\bwhat if you (just|tried|simply)\b|\bwouldn'?t it be (better|easier|good)\b|\bdon'?t you think\b|\bisn'?t it (possible|true) that\b/i;
+const SOLVING = /\b(here are (some|a few)|here'?s (what|how) (to|you)|the (key|trick|secret) (is|here)|my advice|a (good|great) (tip|strategy|approach) (is|would be)|(start|try) (by|with) (making|writing|breaking|setting))\b/i;
+const TENTATIVE = /\b(hunch|i wonder|might be (off|wrong)|could be (off|wrong)|may be (off|wrong)|just a sense|i'?m (sensing|noticing)|i notice|does (that|this|it) (fit|land|ring true|sound right)|take it or leave it|not quite)\b/i;
+const ROOM_TO_DECLINE = /\b(say no|yes,? no|counter[- ]?offer|your call|up to you|turn (it|me) down)\b/i;
+
+/** Moves whose single question should open things up, never close them down. */
+const OPEN_QUESTION_MOVES = new Set([
+  'reflect_and_deepen', 'powerful_question', 'clarify_want', 'explore_values', 'explore_perspectives', 'deepen_insight',
+  'acknowledge_and_explore', 'challenge_assumption', 'name_contradiction', 'name_inner_critic', 'explore_resistance',
+  'bottom_line', 'acknowledge', 'accountability_check',
+]);
+const ADVISING_MOVES = new Set(['advice_with_permission', 'brainstorm']);
+
 const THERAPY = /\b(diagnos|you (have|might have|probably have) (depression|anxiety disorder|adhd|bpd|ocd|ptsd)|as a therapist)\b/i;
 
 const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
@@ -77,6 +92,26 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   const echoed = profilePhrases(input.profile).filter((ph) => lowerReply.includes(ph) && !said.includes(ph));
   if (echoed.length >= 2 || (echoed.length === 1 && plan.primary === 'open_session')) {
     issues.push({ check: 'profile-recital', severity: 'block', detail: `Recites profile details they didn't bring up ("${echoed[0]}"). Use background quietly.` });
+  }
+
+  if (!safety && WHY_QUESTION.test(reply)) {
+    issues.push({ check: 'why-question', severity: 'block', detail: 'Asks "why", which invites defending. Ask "what" or "how" instead.' });
+  }
+  const lastQuestion = reply.split(/(?<=[.!?])\s+/).filter((s) => s.trim().endsWith('?')).pop()?.trim() ?? '';
+  if (lastQuestion && CLOSED_START.test(lastQuestion) && OPEN_QUESTION_MOVES.has(plan.primary)) {
+    issues.push({ check: 'closed-question', severity: 'block', detail: `Asks a yes/no question ("${lastQuestion.slice(0, 60)}"). Ask an open "what" or "how" question.` });
+  }
+  if (!safety && !ADVISING_MOVES.has(plan.primary) && LEADING.test(reply)) {
+    issues.push({ check: 'leading-question', severity: 'block', detail: 'A question with advice hidden in it. Ask what they think, without suggesting the answer.' });
+  }
+  if (!safety && !ADVISING_MOVES.has(plan.primary) && SOLVING.test(reply)) {
+    issues.push({ check: 'solving', severity: 'block', detail: 'Solves the problem for them. Help them find their own way instead.' });
+  }
+  if (plan.primary === 'offer_intuition' && !TENTATIVE.test(reply)) {
+    issues.push({ check: 'intuition-attached', severity: 'block', detail: 'States a hunch as fact. Offer it lightly, as possibly wrong, and ask whether it fits.' });
+  }
+  if (plan.primary === 'make_request' && !ROOM_TO_DECLINE.test(reply)) {
+    issues.push({ check: 'request-no-choice', severity: 'block', detail: 'A request must leave them free to say yes, no or counter-offer. Say so.' });
   }
 
   if (channel === 'voice' && /[()[\]{}<>#*_~|]/.test(reply)) {

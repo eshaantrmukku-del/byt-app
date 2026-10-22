@@ -93,6 +93,7 @@ export const refs = (db: Firestore, uid: string) => {
     user,
     account: user.collection('private').doc('account'),
     rateLimit: user.collection('private').doc('rateLimit'),
+    coachMemory: user.collection('private').doc('coach'),
     turn: (id: string) => user.collection('turns').doc(id),
     conversation: (id: string) => user.collection('conversations').doc(id),
     message: (cid: string, mid: string) => user.collection('conversations').doc(cid).collection('messages').doc(mid),

@@ -4,6 +4,7 @@ import { LlmError, parseJson, type LlmClient, type LlmMessage, type ThinkingLeve
 import { ANALYSIS_SCHEMA, ANALYSIS_SYSTEM, buildAnalysisPrompt, heuristicAnalysis, normaliseAnalysis } from './analysis.js';
 import { buildContextBlock } from './context.js';
 import { checkReply, hasBlocking, sanitiseReply } from './guard.js';
+import { allianceDue, memoryDeltaFor, openCommitments } from './memory.js';
 import { selectMoves } from './policy.js';
 import { REPLY_SCHEMA, buildReplyMessages, buildReplySystem, critiquePrompt } from './prompt.js';
 import { updateSummary } from './summarise.js';
@@ -36,6 +37,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
   const window = ctx.history.slice(-CONTEXT.historyMessages);
   const windowCtx = { ...ctx, history: window };
   const goalIds = new Set(ctx.goals.map((g) => g.id));
+  const commitmentIds = new Set(openCommitments(ctx.memory).map((c) => c.id));
   let tokensIn = 0;
   let tokensOut = 0;
 
@@ -61,7 +63,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
         timeoutMs: TIMEOUTS.analysisMs,
         mockHints: { text },
       });
-      analysis = normaliseAnalysis(parseJson(res.text), fallback, goalIds);
+      analysis = normaliseAnalysis(parseJson(res.text), fallback, goalIds, commitmentIds);
       analysisSource = 'model';
       analysisMs = res.latencyMs;
       tokensIn += res.inputTokens ?? 0;
@@ -72,7 +74,10 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
   }
 
   // 2. Move selection and context
-  const plan = selectMoves(analysis, window, channel);
+  const plan = selectMoves(analysis, window, channel, {
+    allianceDue: ctx.history.length === 0 && !ctx.previousSessionSummary && allianceDue(ctx.memory, started),
+    reflection: ctx.mode === 'reflection',
+  });
   const contextBlock = buildContextBlock(windowCtx, text, analysis);
   const system = buildReplySystem({ plan, analysis, channel, contextBlock, today: ctx.today, mode: ctx.mode });
   const messages = buildReplyMessages(window, text);
@@ -154,8 +159,10 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
     tokensIn += summary.tokens.input;
     tokensOut += summary.tokens.output;
   }
+  const memory = memoryDeltaFor(analysis, plan, summary?.bigAgenda);
   return {
     reply,
+    ...(memory ? { memory } : {}),
     ...(proposal ? { proposal } : {}),
     ...(summary ? { summary: { text: summary.text, messageCount: summary.messageCount } } : {}),
     trace: {

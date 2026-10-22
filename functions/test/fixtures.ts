@@ -48,6 +48,18 @@ export function makeAnalysis(over: Partial<TurnAnalysis> = {}): TurnAnalysis {
     useJournal: false,
     referencesPastSession: false,
     goalProgressReported: null,
+    innerCritic: null,
+    storytelling: false,
+    pattern: null,
+    singlePerspective: false,
+    wantsIdeas: false,
+    progressOutcome: null,
+    commitment: null,
+    playingSmall: false,
+    resolvedCommitmentId: null,
+    allianceNote: null,
+    energy: 'steady',
+    unspoken: null,
     ...over,
   };
 }

@@ -1,5 +1,6 @@
 import type { Channel } from '../contract.js';
 import type { LlmMessage } from '../llm/types.js';
+import { SKILLS } from './framework.js';
 import { MOVE_SPECS } from './moves.js';
 import { COACH_IDENTITY, STYLE } from './spec.js';
 import type { CoachContextData, MovePlan, TurnAnalysis } from './types.js';
@@ -29,7 +30,11 @@ function readingOfTurn(a: TurnAnalysis): string {
     a.values.length ? `Values that may be in play: ${a.values.join(', ')}.` : '',
     a.assumptions.length ? `Possible assumptions: ${a.assumptions.map((s) => `"${s}"`).join(', ')}.` : '',
     a.contradiction ? `Tension with earlier: ${a.contradiction}.` : '',
-    `Stage: ${a.stage}. Intent: ${a.intent.replace('_', ' ')}.`,
+    a.innerCritic ? `Inner critic speaking: "${a.innerCritic}".` : '',
+    a.pattern ? `A pattern you may have noticed: ${a.pattern}.` : '',
+    a.unspoken ? `Possibly unsaid (a hunch, not a fact): ${a.unspoken}.` : '',
+    a.singlePerspective ? 'They seem locked into one way of seeing it.' : '',
+    `Energy: ${a.energy}. Stage: ${a.stage}. Intent: ${a.intent.replace('_', ' ')}.`,
   ];
   return parts.filter(Boolean).join(' ');
 }
@@ -44,6 +49,7 @@ export function buildReplySystem(p: {
 }): string {
   const primary = MOVE_SPECS[p.plan.primary];
   const secondary = p.plan.secondary ? MOVE_SPECS[p.plan.secondary] : undefined;
+  const skills = primary.skills.map((id) => `- ${SKILLS[id].name}: ${SKILLS[id].does} Avoid: ${SKILLS[id].avoid}`).join('\n');
   const examples = primary.examples
     .map((e) => `User: ${e.user}\nCoach: ${e.coach}`)
     .join('\n\n');
@@ -56,7 +62,7 @@ export function buildReplySystem(p: {
     `Today is ${p.today}.`,
     p.contextBlock ? `# Background\n${p.contextBlock}` : '',
     `# Your read of their latest message\n${readingOfTurn(p.analysis)}`,
-    `# This turn: ${primary.label}\n${primary.guidance}${secondary ? `\nIf it fits naturally afterwards: ${secondary.label.toLowerCase()} — but never at the cost of the above.` : ''}\nAim for about ${p.plan.targetWords} words and at most ${p.plan.maxQuestions} question.`,
+    `# This turn: ${primary.label}\n${primary.guidance}${skills ? `\nSkills in play:\n${skills}` : ''}${secondary ? `\nIf it fits naturally afterwards: ${secondary.label.toLowerCase()} — but never at the cost of the above.` : ''}\nAim for about ${p.plan.targetWords} words and at most ${p.plan.maxQuestions} question.`,
     examples ? `# The shape of this move (illustration only; never reuse the wording)\n${examples}` : '',
     'Respond with JSON: {"reply": string, "goalProgress": object|null}.',
   ].filter(Boolean).join('\n\n');

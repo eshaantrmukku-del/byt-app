@@ -1,4 +1,5 @@
 import { CONTEXT } from '../config.js';
+import { openCommitments } from './memory.js';
 import type { CheckInContext, CoachContextData, GoalContext, TurnAnalysis } from './types.js';
 
 export function addDays(isoDate: string, days: number): string {
@@ -39,8 +40,37 @@ function profileBlock(ctx: CoachContextData, text: string, a: TurnAnalysis): str
   if (p.struggles) lines.push(`Struggles they named: ${clip(p.struggles, 300)}`);
   if (p.lifestyle) lines.push(`Lifestyle: ${clip(p.lifestyle, 200)}`);
   if (p.income && (MONEY.test(text) || /financ|money|career/i.test(a.topic))) lines.push(`Income: ${clip(p.income, 80)}`);
-  if (p.coachNotes) lines.push(`Notes they left for their coach (respect these): ${clip(p.coachNotes, 500)}`);
   return lines.length ? lines.join('\n') : '';
+}
+
+/** How they want to be coached: notes from onboarding plus what they've said since. Always honoured. */
+function allianceBlock(ctx: CoachContextData): string {
+  const lines = [
+    ctx.profile.coachNotes ? `Notes they left for their coach: ${clip(ctx.profile.coachNotes, 500)}` : '',
+    ...(ctx.memory?.alliance ?? []).map((a) => `They asked: ${clip(a, 160)}`),
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
+function agendaBlock(ctx: CoachContextData, a: TurnAnalysis, firstTurn: boolean): string {
+  const m = ctx.memory;
+  if (!m) return '';
+  const forward = ['wants', 'options', 'commitment'].includes(a.stage) || a.intent === 'decide';
+  const lines = [
+    m.bigAgenda && (firstTurn || forward) ? `What they seem to be reaching for: ${clip(m.bigAgenda, 400)}` : '',
+    m.values.length && (forward || a.values.length) ? `Values that keep showing up: ${m.values.slice(0, 5).map((v) => v.name).join(', ')}` : '',
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+
+function commitmentsBlock(ctx: CoachContextData, a: TurnAnalysis, firstTurn: boolean): string {
+  const open = openCommitments(ctx.memory);
+  const relevant = firstTurn || a.referencesPastSession || a.progressOutcome || a.intent === 'report_progress' || a.stage === 'accountability';
+  if (!open.length || !relevant) return '';
+  return open
+    .slice(-4)
+    .map((c) => `- [${c.id}] ${clip(c.text, 160)}${c.when ? ` (by ${c.when})` : ''}, said on ${new Date(c.createdAt).toISOString().slice(0, 10)}`)
+    .join('\n');
 }
 
 function goalsBlock(goals: readonly GoalContext[], a: TurnAnalysis, firstTurn: boolean): string {
@@ -95,7 +125,10 @@ function journalBlock(ctx: CoachContextData, a: TurnAnalysis): string {
 export function buildContextBlock(ctx: CoachContextData, text: string, a: TurnAnalysis): string {
   const firstTurn = ctx.history.length === 0;
   const sections: [string, string][] = [
+    ['HOW THEY WANT TO BE COACHED (your agreement with them; always honour it)', allianceBlock(ctx)],
     ['ABOUT THEM (background from onboarding; use only if it genuinely helps this moment, never list it back)', profileBlock(ctx, text, a)],
+    ['THEIR BIGGER AGENDA (hold it quietly; their agenda, not yours)', agendaBlock(ctx, a, firstTurn)],
+    ['OPEN COMMITMENTS (things they said they would do; follow up lightly, without judgement)', commitmentsBlock(ctx, a, firstTurn)],
     [firstTurn ? 'THEIR ACTIVE GOALS (background)' : 'GOALS RELEVANT TO THIS MESSAGE', goalsBlock(ctx.goals, a, firstTurn)],
     [ctx.mode === 'reflection' ? 'RECENT CHECK-INS (they came to reflect on these; last 14 days)' : 'RECENT CHECK-INS (last 14 days, relevant here)', checkInsBlock(ctx, a)],
     ['JOURNAL (private; refer to it only as they did)', journalBlock(ctx, a)],

@@ -37,6 +37,7 @@ function contextFor(scenario: Scenario, history: HistoryMessage[]) {
   return makeContext({
     history,
     historyTotal: history.length,
+    ...(scenario.memory ? { memory: scenario.memory } : {}),
     mode: scenario.mode ?? 'normal',
     ...(scenario.mode === 'reflection' ? { reflectionCheckInId: '2026-10-04' } : {}),
     checkIns,

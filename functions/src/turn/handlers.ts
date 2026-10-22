@@ -29,7 +29,8 @@ import {
   type Usage,
 } from '../credits/ledger.js';
 import { runCoachingEngine, type EngineOptions } from '../engine/engine.js';
-import type { EngineResult } from '../engine/types.js';
+import { applyMemoryDelta, emptyMemory, readMemory } from '../engine/memory.js';
+import type { EngineResult, MemoryDelta } from '../engine/types.js';
 import { CoachError } from '../errors.js';
 import { importLegacyAccount } from '../legacy/importLegacy.js';
 import type { LlmClient } from '../llm/types.js';
@@ -101,6 +102,24 @@ function engineOptions(deps: TurnDeps, thinking: CoachThinking | undefined): Eng
 }
 
 /**
+ * Folds what a finished turn taught the coach into private/coach. Best effort: the turn
+ * is already stored, so a failure here is logged and the reply still goes out.
+ */
+async function updateCoachMemory(deps: TurnDeps, p: { uid: string; requestId: string; conversationId: string; delta: MemoryDelta }) {
+  const ref = refs(deps.db, p.uid).coachMemory;
+  try {
+    await deps.db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const current = snap.exists ? readMemory(snap.data()) : emptyMemory();
+      const next = applyMemoryDelta(current, p.delta, { nowMs: deps.now(), conversationId: p.conversationId, commitmentId: p.requestId });
+      tx.set(ref, { ...next, updatedAt: FieldValue.serverTimestamp() });
+    });
+  } catch (error) {
+    deps.log('memory_update_failed', { uid: p.uid, requestId: p.requestId, name: (error as Error)?.name });
+  }
+}
+
+/**
  * Runs the engine for a turn and records the outcome. Any failure before the coach
  * message is stored releases the turn's reservation and surfaces as a retryable error.
  */
@@ -161,7 +180,9 @@ async function runTurn(
       latencyMs: t.latencyMs,
       tokens: { ...t.tokens, voice: p.extraTokens ?? 0, total: tokens },
       summarised: Boolean(result.summary),
+      memory: result.memory ? Object.keys(result.memory) : [],
     });
+    if (result.memory) await updateCoachMemory(deps, { uid: p.uid, requestId: p.requestId, conversationId: p.conversationId, delta: result.memory });
     return { result, usage, reply: turn.reply ?? result.reply, replyCreatedAtMs: turn.replyCreatedAtMs ?? deps.now(), proposal: turn.proposal };
   } catch (error) {
     await failTurn(deps.db, { uid: p.uid, requestId: p.requestId, attempt: p.attempt, nowMs: deps.now() }).catch(() => undefined);

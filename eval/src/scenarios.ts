@@ -1,3 +1,5 @@
+import type { CoachMemory } from '../../functions/src/engine/types.js';
+
 export type ScenarioTurn = { user: string; expectMove?: string };
 
 export type Scenario = {
@@ -7,8 +9,21 @@ export type Scenario = {
   mode?: 'normal' | 'reflection';
   /** Include recent check-ins and a journal line in the context. */
   withRecentContext?: boolean;
+  /** What the coach remembers from earlier conversations. */
+  memory?: CoachMemory;
   turns: ScenarioTurn[];
 };
+
+const DAY = 86_400_000;
+const EVAL_NOW = Date.UTC(2026, 9, 22, 9);
+const remembered = (over: Partial<CoachMemory> = {}): CoachMemory => ({
+  alliance: [],
+  allianceAskedAt: EVAL_NOW - 10 * DAY,
+  bigAgenda: null,
+  values: [],
+  commitments: [],
+  ...over,
+});
 
 const u = (user: string, expectMove?: string): ScenarioTurn => ({ user, ...(expectMove ? { expectMove } : {}) });
 
@@ -17,7 +32,7 @@ export const SCENARIOS: Scenario[] = [
   { id: 'goals-background', category: 'goals', turns: [u('The masters applications are due next month and I have not started.')] },
   { id: 'indecision', category: 'indecision', turns: [u("I can't decide whether to stay in Manchester or move to London.")] },
   { id: 'procrastination', category: 'procrastination', turns: [u('I keep putting off applying for university.')] },
-  { id: 'confidence', category: 'confidence', turns: [u("I'm not smart enough for a masters. They'll just laugh at my application.")] },
+  { id: 'confidence', category: 'confidence', turns: [u("I'm not smart enough for a masters. They'll just laugh at my application.", 'name_inner_critic')] },
   { id: 'career', category: 'career', turns: [u('My manager keeps giving the interesting work to other people.')] },
   { id: 'leadership', category: 'leadership', turns: [u("I've just been asked to lead a team and I have no idea how to do that.")] },
   { id: 'relationships', category: 'relationships', turns: [u("My partner says I never listen, and I think they're being unfair.")] },
@@ -33,7 +48,7 @@ export const SCENARIOS: Scenario[] = [
   { id: 'self-contradiction', category: 'self-contradiction', turns: [u("I say I want more time, and then I volunteer for every extra shift.")] },
   { id: 'assumption', category: 'assumptions', turns: [u("There's no point asking for a raise, they'll just say no.")] },
   { id: 'commitment', category: 'commitment', turns: [u("I'll send two applications this Friday after work.")] },
-  { id: 'progress', category: 'accountability', turns: [u('Update: I finally sent the first application yesterday.')] },
+  { id: 'progress', category: 'accountability', turns: [u('Update: I finally sent the first application yesterday.', 'acknowledge')] },
   { id: 'overwhelm', category: 'emotional situations', turns: [u("I can't cope. Everything is due at once and I feel like I'm drowning.")] },
   { id: 'small-talk', category: 'opening', turns: [u('hey')] },
   { id: 'journal', category: 'journal', withRecentContext: true, turns: [u('I wrote in my journal last night that I miss my dad. I have not said that out loud.')] },
@@ -43,7 +58,76 @@ export const SCENARIOS: Scenario[] = [
   {
     id: 'opener',
     category: 'opening',
+    memory: remembered(),
     turns: [u('(The user opened a new coaching session and is waiting for you to start.)', 'open_session')],
+  },
+  {
+    id: 'alliance-first',
+    category: 'designed alliance',
+    turns: [u('(The user opened a new coaching session and is waiting for you to start.)', 'design_alliance')],
+  },
+  {
+    id: 'alliance-stated',
+    category: 'designed alliance',
+    memory: remembered(),
+    turns: [u("Can you be more blunt with me? I don't need hand-holding.", 'design_alliance')],
+  },
+  {
+    id: 'alliance-honoured',
+    category: 'designed alliance',
+    memory: remembered({ alliance: ['be blunt with me, no hand-holding'] }),
+    turns: [u("I've been 'about to start' my dissertation for three weeks.")],
+  },
+  {
+    id: 'opener-commitment',
+    category: 'accountability',
+    memory: remembered({
+      commitments: [{ id: 'c-apps', text: 'Send two masters applications', when: 'Friday', createdAt: EVAL_NOW - 5 * DAY, status: 'open', conversationId: 'earlier' }],
+    }),
+    turns: [u('(The user opened a new coaching session and is waiting for you to start.)', 'open_session')],
+  },
+  {
+    id: 'big-agenda',
+    category: 'holding the agenda',
+    memory: remembered({ bigAgenda: 'Becoming someone who backs themselves instead of waiting for permission', values: [{ name: 'independence', count: 4 }, { name: 'family', count: 3 }] }),
+    turns: [u('I want to decide about the London offer this week.')],
+  },
+  {
+    id: 'clearing',
+    category: 'clearing',
+    turns: [u("I need to vent. My flatmate ate my food AGAIN, left a mess, and then had the nerve to complain about MY noise. I'm furious.", 'clearing')],
+  },
+  { id: 'values-decision', category: 'values', turns: [u("I can't decide between the startup offer and the civil service job.", 'explore_values')] },
+  { id: 'perspectives', category: 'perspectives', turns: [u("There's no other way: I either quit or I put up with it forever.", 'explore_perspectives')] },
+  { id: 'brainstorm', category: 'brainstorming', turns: [u('Can you help me brainstorm ways to fit running into my week?', 'brainstorm')] },
+  { id: 'closing', category: 'inquiry', turns: [u('This was useful.'), u("Thanks, that's really helpful. I have to go now.", 'close_with_inquiry')] },
+  {
+    id: 'bottom-line',
+    category: 'bottom-lining',
+    turns: [
+      u(
+        "So on Monday my manager asked for the report, and I said Wednesday, and then on Tuesday a client called and asked for changes to the old deck, which meant I had to go back to the designer, who was off, so I asked Priya, and she said she would do it but then her manager pulled her onto something else, and by Wednesday morning I had the report half done and the deck not done, and my manager asked in the stand-up in front of everyone, and I explained about the client and the designer and Priya, and he said fine but then on Thursday he gave the next project to Tom, and Tom had not even finished his last one, and then on Friday there was the team lunch where nobody mentioned any of it, and then over the weekend I kept going over all of it again and again in my head, replaying what I said and what he said and what I should have said instead, and I still have not decided whether to bring it up with him on Monday or just let it go.",
+        'bottom_line',
+      ),
+    ],
+  },
+  {
+    id: 'multi-pattern',
+    category: 'intuition',
+    turns: [
+      u("My mother called again about the wedding seating plan."),
+      u('Work was fine, but I spent lunch answering my mother about the flowers.'),
+      u("I said yes to hosting the engagement party because my mother asked.", 'offer_intuition'),
+    ],
+  },
+  {
+    id: 'multi-request',
+    category: 'requesting',
+    turns: [
+      u('I really want to get fit enough to run a half marathon next spring.'),
+      u("Running makes me feel like myself again. That matters a lot."),
+      u("I'll maybe go for one short jog at some point this week."),
+    ],
   },
   {
     id: 'reflection',

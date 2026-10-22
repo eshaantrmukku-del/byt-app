@@ -47,6 +47,8 @@ export type CoachContextData = {
   summary?: string;
   summaryMessageCount: number;
   previousSessionSummary?: string;
+  /** What the coach carries between conversations (server-owned, private/coach). */
+  memory?: CoachMemory;
   mode: ConversationMode;
   reflectionCheckInId?: string;
 };
@@ -72,6 +74,7 @@ export type UserIntent =
   | 'decide'
   | 'small_talk'
   | 'push_back'
+  | 'closing'
   | 'other';
 
 export type TurnAnalysis = {
@@ -95,22 +98,89 @@ export type TurnAnalysis = {
   useJournal: boolean;
   referencesPastSession: boolean;
   goalProgressReported: { goalId: string; progress: number } | null;
+  /** A harsh self-judging voice, near-quoted ("I'm not smart enough"). */
+  innerCritic: string | null;
+  /** Long narrative heavy on detail, light on what it means to them. */
+  storytelling: boolean;
+  /** A theme that keeps coming back across this conversation or earlier ones. */
+  pattern: string | null;
+  /** Stuck in one way of seeing it, or a forced either/or. */
+  singlePerspective: boolean;
+  /** Wants options or ideas to consider, not a verdict. */
+  wantsIdeas: boolean;
+  /** Reporting back on a commitment: how it went. */
+  progressOutcome: 'kept' | 'partial' | 'missed' | null;
+  /** The concrete commitment they just made, if any. */
+  commitment: { action: string; when: string | null } | null;
+  /** Settling for less than they said they want; room for a stretching request. */
+  playingSmall: boolean;
+  /** Which open commitment (by id) this message reports on. */
+  resolvedCommitmentId: string | null;
+  /** How they said they want to be coached ("be blunt with me"). */
+  allianceNote: string | null;
+  /** Energy behind the words, heard beyond the content. */
+  energy: 'low' | 'steady' | 'rising';
+  /** Something that seems present but unsaid; a hunch, not a fact. */
+  unspoken: string | null;
+};
+
+export type CommitmentStatus = 'open' | 'kept' | 'partial' | 'missed';
+
+export type Commitment = {
+  id: string;
+  text: string;
+  when: string | null;
+  /** Epoch ms. */
+  createdAt: number;
+  status: CommitmentStatus;
+  conversationId: string;
+};
+
+/** What the coach holds between conversations: the alliance, their bigger agenda, values and commitments. */
+export type CoachMemory = {
+  alliance: string[];
+  /** Epoch ms of the last time the coach asked how they want to be coached. */
+  allianceAskedAt: number | null;
+  bigAgenda: string | null;
+  values: { name: string; count: number }[];
+  commitments: Commitment[];
+};
+
+/** What one turn adds to the memory; applied by the server after the turn completes. */
+export type MemoryDelta = {
+  alliance?: string;
+  allianceAsked?: boolean;
+  values?: string[];
+  commitment?: { action: string; when: string | null };
+  resolve?: { id: string; outcome: Exclude<CommitmentStatus, 'open'> };
+  bigAgenda?: string;
 };
 
 export const MOVES = [
   'safety',
   'open_session',
+  'design_alliance',
+  'clearing',
   'acknowledge_and_explore',
   'reflect_and_deepen',
   'powerful_question',
+  'bottom_line',
+  'offer_intuition',
   'clarify_want',
+  'explore_values',
+  'explore_perspectives',
   'challenge_assumption',
   'name_contradiction',
+  'name_inner_critic',
   'explore_resistance',
   'deepen_insight',
+  'brainstorm',
   'move_to_action',
   'secure_commitment',
+  'make_request',
   'accountability_check',
+  'acknowledge',
+  'close_with_inquiry',
   'advice_with_permission',
 ] as const;
 export type Move = (typeof MOVES)[number];
@@ -149,6 +219,7 @@ export type EngineTrace = {
 
 export type EngineResult = {
   reply: string;
+  memory?: MemoryDelta;
   proposal?: GoalProgressProposal;
   summary?: { text: string; messageCount: number };
   trace: EngineTrace;

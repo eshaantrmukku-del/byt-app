@@ -4,6 +4,7 @@ import { CONTEXT } from '../config.js';
 import { userMessageId, coachMessageId } from '../contract.js';
 import { refs, type ConversationState } from '../credits/ledger.js';
 import { addDays } from '../engine/context.js';
+import { readMemory } from '../engine/memory.js';
 import type { CheckInContext, CoachContextData, GoalContext, HistoryMessage, JournalContext } from '../engine/types.js';
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
@@ -27,7 +28,7 @@ export async function loadCoachContext(
   const convRef = r.conversation(p.conversationId);
   const exclude = new Set([userMessageId(p.clientTurnId), coachMessageId(p.clientTurnId)]);
 
-  const [profileSnap, goalsSnap, checkInsSnap, journalSnap, convSnap, messagesSnap, recentConvs] = await Promise.all([
+  const [profileSnap, goalsSnap, checkInsSnap, journalSnap, convSnap, messagesSnap, recentConvs, memorySnap] = await Promise.all([
     r.user.get(),
     r.user.collection('goals').limit(30).get(),
     r.user.collection('checkIns').where('date', '>=', from).limit(20).get(),
@@ -35,6 +36,7 @@ export async function loadCoachContext(
     convRef.get(),
     convRef.collection('messages').orderBy('createdAt', 'desc').limit(HISTORY_LOAD + 2).get(),
     r.user.collection('conversations').orderBy('updatedAt', 'desc').limit(4).get(),
+    r.coachMemory.get(),
   ]);
 
   const pd = profileSnap.data() ?? {};
@@ -92,6 +94,7 @@ export async function loadCoachContext(
     ...(p.conversation.summary ? { summary: p.conversation.summary } : {}),
     summaryMessageCount: p.conversation.summaryMessageCount,
     ...(previous ? { previousSessionSummary: str(previous.data().summary) } : {}),
+    ...(memorySnap.exists ? { memory: readMemory(memorySnap.data()) } : {}),
     mode: p.conversation.mode,
     ...(p.conversation.reflectionCheckInId ? { reflectionCheckInId: p.conversation.reflectionCheckInId } : {}),
   };
