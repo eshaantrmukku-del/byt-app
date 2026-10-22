@@ -1,7 +1,7 @@
 import { ApiError, GoogleGenAI, type GenerateContentParameters, type GenerateContentResponse } from '@google/genai';
 
 import { TIMEOUTS, VOICE } from '../config.js';
-import { VoiceError, type SpeechAudio, type VoiceProvider } from './types.js';
+import { VoiceError, type SpeechAudio, type Transcript, type VoiceProvider } from './types.js';
 
 /**
  * Voice on the same Gemini key as the coach: Gemini Transcribe for the finished
@@ -36,7 +36,7 @@ export class GeminiVoice implements VoiceProvider {
     }
   }
 
-  async transcribe(audio: Buffer, mimeType: string): Promise<string> {
+  async transcribe(audio: Buffer, mimeType: string): Promise<Transcript> {
     const response = await this.call(
       {
         model: VOICE.sttModel,
@@ -47,10 +47,11 @@ export class GeminiVoice implements VoiceProvider {
     );
     // Transcribe answers in an audioTranscription part; other models answer in text.
     const parts = (response.candidates?.[0]?.content?.parts ?? []) as { text?: string; audioTranscription?: { text?: string } }[];
-    return parts
+    const text = parts
       .map((part) => part.audioTranscription?.text ?? part.text ?? '')
       .join(' ')
       .trim();
+    return { text, tokens: response.usageMetadata?.totalTokenCount ?? 0 };
   }
 
   async synthesize(text: string): Promise<SpeechAudio> {
@@ -70,7 +71,11 @@ export class GeminiVoice implements VoiceProvider {
     const data = Buffer.from(inline?.data ?? '', 'base64');
     if (data.length === 0) throw new VoiceError('Text-to-speech returned no audio', 'tts');
     // Current models return a WAV file; older ones returned raw 24 kHz 16-bit PCM.
-    return { data: data.subarray(0, 4).toString('latin1') === 'RIFF' ? data : wav(data), mimeType: 'audio/wav' };
+    return {
+      data: data.subarray(0, 4).toString('latin1') === 'RIFF' ? data : wav(data),
+      mimeType: 'audio/wav',
+      tokens: response.usageMetadata?.totalTokenCount ?? 0,
+    };
   }
 }
 

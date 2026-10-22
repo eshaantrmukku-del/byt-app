@@ -1,4 +1,4 @@
-import type { Account, ChatMessage, CheckIn, Conversation, Goal, GoalCategory, GoalStatus, JournalEntry, MessageRole, MoodId } from '@/types/models';
+import type { ChatMessage, CheckIn, Conversation, Goal, GoalCategory, GoalStatus, JournalEntry, MessageRole, MoodId } from '@/types/models';
 import { GOAL_CATEGORIES, MOOD_IDS } from '@/types/models';
 
 import { isIsoDate } from './dob';
@@ -150,14 +150,4 @@ export function legacyChats(data: Data | undefined): LegacyChat[] {
       messages,
     }];
   });
-}
-
-/** Credits written on the user document by the prototype. Absent when the field was never set. */
-export function legacyAccount(data: Data | undefined): Account | null {
-  if (!data || typeof data.creditsRemaining !== 'number' || !Number.isFinite(data.creditsRemaining)) return null;
-  return {
-    plan: data.subscriptionPlan === 'plus' ? 'plus' : 'standard',
-    creditsRemaining: Math.max(0, Math.floor(data.creditsRemaining)),
-    creditsPeriodKey: str(data.creditsPeriodKey),
-  };
 }

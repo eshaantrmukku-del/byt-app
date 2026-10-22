@@ -24,7 +24,7 @@ export class MockLlm implements LlmClient {
       throw Object.assign(new Error('mock provider failure'), { name: 'LlmError', kind: 'server' });
     }
     const text = this.respond(req);
-    return { text, model: req.model, latencyMs: this.opts.latencyMs ?? 1, inputTokens: 0, outputTokens: 0 };
+    return { text, model: req.model, latencyMs: this.opts.latencyMs ?? 1, inputTokens: estimateTokens(req), outputTokens: Math.ceil(text.length / 4) };
   }
 
   private respond(req: LlmRequest): string {
@@ -88,4 +88,10 @@ function naiveReply(req: LlmRequest): string {
     '3. Reward yourself when you finish.',
     `Remember, as a ${String(hint(req, 'profileName') ?? 'person')} you have what it takes! What will you do first? And how will you stay motivated?`,
   ].join('\n');
+}
+
+/** About four characters a token, like Gemini's own rough guide. */
+function estimateTokens(req: LlmRequest): number {
+  const chars = (req.system?.length ?? 0) + req.messages.reduce((n, m) => n + m.text.length, 0);
+  return Math.ceil(chars / 4);
 }

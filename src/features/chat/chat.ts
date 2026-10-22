@@ -97,13 +97,3 @@ export function formatRelativeTime(timestamp: number, now = Date.now()): string 
   if (days < 7) return `${days}d ago`;
   return new Date(timestamp).toLocaleDateString();
 }
-
-export function nextResetLabel(periodKey: string): string {
-  const [y, m] = periodKey.split('-').map((x) => Number.parseInt(x, 10));
-  if (!y || !m) return '';
-  return new Date(y, m, 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-export function currentPeriodKey(now = new Date()): string {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}

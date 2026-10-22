@@ -34,10 +34,10 @@ import { computeStreaks } from '@/features/checkIns/checkIns';
 import { localDateKey } from '@/features/dates';
 import { CATEGORY_LABELS } from '@/features/goals/goals';
 import { confirmLogout } from '@/features/session/confirmLogout';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { currentAccount, percentLeft } from '@/features/usage/usage';
+import { useUsageStore } from '@/stores/usageStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useUserDataStore } from '@/stores/userDataStore';
-import { MONTHLY_CREDIT_ALLOWANCE } from '@/types/models';
 import { shadows, theme } from '@/ui';
 
 const MENU_WIDTH = Dimensions.get('window').width * 0.82;
@@ -67,7 +67,7 @@ export default function HomeScreen() {
   const profile = useProfileStore((s) => s.profile);
   const goals = useUserDataStore((s) => s.goals.items);
   const checkIns = useUserDataStore((s) => s.checkIns.items);
-  const credits = useCreditsStore((s) => s.account?.creditsRemaining ?? MONTHLY_CREDIT_ALLOWANCE);
+  const left = percentLeft(currentAccount(useUsageStore((s) => s.account)));
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [slide] = useState(() => new Animated.Value(-MENU_WIDTH));
@@ -152,7 +152,7 @@ export default function HomeScreen() {
                   <Text style={styles.menuUser}>{name}</Text>
                   <Text style={styles.menuEmail}>{profile?.email || 'No email'}</Text>
                   <Text style={styles.menuPlan}>
-                    Beta · {credits}/{MONTHLY_CREDIT_ALLOWANCE} credits
+                    Beta · {left}% of today&apos;s coaching left
                   </Text>
                 </View>
               </SafeAreaView>

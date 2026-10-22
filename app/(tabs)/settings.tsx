@@ -23,24 +23,49 @@ import { confirmLogout } from '@/features/session/confirmLogout';
 import { logOut } from '@/services/authService';
 import { coachClient } from '@/services/coach/coachClient';
 import { toCoachError } from '@/services/coach/errors';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { currentAccount, percentLeft, resetLabel } from '@/features/usage/usage';
+import type { CoachThinking } from '@/services/coach/types';
 import { usePreferencesStore, type PreferenceKey } from '@/stores/preferencesStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSyncStore } from '@/stores/syncStore';
-import { MONTHLY_CREDIT_ALLOWANCE } from '@/types/models';
+import { useUsageStore } from '@/stores/usageStore';
 import { theme } from '@/ui';
 
 const COACH_EMAIL = 'venkatareddy.mukku@gmail.com';
 const COACH_LINKEDIN = 'https://www.linkedin.com/in/venkata-reddy-mukku-5403246/';
 
-function currentPeriodKey(now = new Date()) {
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
+const THINKING_OPTIONS: { value: CoachThinking; label: string; hint: string }[] = [
+  { value: 'standard', label: 'Standard', hint: 'Thoughtful replies at conversation pace.' },
+  { value: 'deeper', label: 'Deeper', hint: 'Takes a little longer to reflect before replying.' },
+  { value: 'deepest', label: 'Deepest', hint: 'Slowest, most considered replies. Uses more of your daily allowance.' },
+];
 
-function nextResetLabel(periodKey: string): string {
-  const [y, m] = periodKey.split('-').map((x) => Number.parseInt(x, 10));
-  if (!y || !m) return '';
-  return new Date(y, m, 1).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+function ThinkingPicker() {
+  const value = usePreferencesStore((s) => s.coachThinking);
+  const setValue = usePreferencesStore((s) => s.setCoachThinking);
+  const selected = THINKING_OPTIONS.find((o) => o.value === value) ?? THINKING_OPTIONS[0]!;
+  return (
+    <View>
+      <View style={styles.segment} accessibilityRole="radiogroup" accessibilityLabel="Coach thinking">
+        {THINKING_OPTIONS.map((option) => {
+          const active = option.value === selected.value;
+          return (
+            <TouchableOpacity
+              key={option.value}
+              style={[styles.segmentItem, active && styles.segmentItemActive]}
+              onPress={() => setValue(option.value)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={option.label}
+            >
+              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{option.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <Text style={styles.segmentHint}>{selected.hint}</Text>
+    </View>
+  );
 }
 
 function ToggleRow({ icon: Icon, label, prefKey }: { icon: LucideIcon; label: string; prefKey: PreferenceKey }) {
@@ -86,14 +111,11 @@ function LinkRow(props: { icon: LucideIcon; label: string; hint?: string; onPres
 
 export default function SettingsScreen() {
   const profile = useProfileStore((s) => s.profile);
-  const account = useCreditsStore((s) => s.account);
+  const account = currentAccount(useUsageStore((s) => s.account));
   const syncError = useSyncStore((s) => s.lastError);
 
   const [deleting, setDeleting] = useState(false);
-  const allowance = account?.monthlyAllowance && account.monthlyAllowance > 0 ? account.monthlyAllowance : MONTHLY_CREDIT_ALLOWANCE;
-  const creditsRemaining = account?.creditsRemaining ?? allowance;
-  const resetLabel = nextResetLabel(account?.creditsPeriodKey || currentPeriodKey());
-  const usedPct = Math.min(100, Math.max(0, Math.round(((allowance - creditsRemaining) / allowance) * 100)));
+  const left = percentLeft(account);
 
   const deleteAccount = () => {
     // Web alerts don't confirm, so keep the hosted request page there.
@@ -152,30 +174,33 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionHeader}>COACH THINKING</Text>
+          <ThinkingPicker />
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionHeader}>SUBSCRIPTION</Text>
           <View style={styles.subscriptionCard}>
             <View style={styles.subHeaderRow}>
               <View style={styles.flex}>
                 <Text style={styles.subTitle}>BYT Beta</Text>
-                <Text style={styles.subSubtitle}>Credits reset monthly</Text>
+                <Text style={styles.subSubtitle}>Coaching allowance resets daily</Text>
               </View>
               <View style={styles.activeBadge}>
                 <Text style={styles.activeBadgeText}>ACTIVE</Text>
               </View>
             </View>
             <View style={styles.creditsHeader}>
-              <Text style={styles.creditsLabel}>Remaining credits</Text>
-              <Text style={styles.creditsValue}>
-                {creditsRemaining} / {allowance}
-              </Text>
+              <Text style={styles.creditsLabel}>Today&apos;s coaching</Text>
+              <Text style={styles.creditsValue}>{left}% left</Text>
             </View>
-            <View style={styles.progressBg}>
-              <View style={[styles.progressFill, { width: `${usedPct}%` }]} />
+            <View style={styles.progressBg} accessibilityLabel={`${left} percent of today's coaching left`}>
+              <View style={[styles.progressFill, { width: `${100 - left}%` }]} />
             </View>
-            <Text style={styles.progressInfo}>Next reset on {resetLabel}</Text>
+            <Text style={styles.progressInfo}>Resets {resetLabel(account.resetsAt)}</Text>
             <Text style={styles.creditHint}>
-              You receive {MONTHLY_CREDIT_ALLOWANCE} credits at the start of each calendar month. Each message you send to
-              the coach uses 1 credit; coach replies do not.
+              Each message and voice turn uses part of your daily allowance; longer conversations and deeper thinking use
+              more. Opening a session doesn&apos;t count, and nothing is used if a reply fails.
             </Text>
           </View>
         </View>
@@ -265,6 +290,12 @@ const styles = StyleSheet.create({
   dangerIconBox: { backgroundColor: 'rgba(239,68,68,0.12)' },
   settingLabelText: { fontSize: 16, fontWeight: '600', color: theme.text },
   hint: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+  segment: { flexDirection: 'row', backgroundColor: theme.card, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: theme.border },
+  segmentItem: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
+  segmentItemActive: { backgroundColor: theme.primary },
+  segmentText: { fontSize: 14, fontWeight: '600', color: theme.textSecondary },
+  segmentTextActive: { color: '#FFF' },
+  segmentHint: { fontSize: 12, color: theme.textSecondary, marginTop: 10, lineHeight: 18 },
   subscriptionCard: { backgroundColor: theme.card, borderRadius: 24, padding: 24, borderWidth: 1, borderColor: theme.border },
   subHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },
   subTitle: { fontSize: 20, fontWeight: '700', color: theme.text, marginBottom: 4 },

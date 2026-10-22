@@ -8,7 +8,7 @@ import { firebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useChatStore } from '@/stores/chatStore';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { useUsageStore } from '@/stores/usageStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 
@@ -111,7 +111,7 @@ export function stopUserWatches() {
 export function clearUserState() {
   useProfileStore.getState().reset();
   useUserDataStore.getState().reset();
-  useCreditsStore.getState().reset();
+  useUsageStore.getState().reset();
   useChatStore.getState().reset();
   useSyncStore.getState().reset();
 }

@@ -15,12 +15,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { coachClient, newRequestId } from '@/services/coach/coachClient';
 import { toCoachError } from '@/services/coach/errors';
-import { acceptGoalProposal, applyTurnCredits } from '@/services/coach/turns';
-import { VOICE_MAX_DURATION_MS, type GoalProgressProposal, type VoiceAudioMimeType, type VoiceTurnRequest } from '@/services/coach/types';
+import { acceptGoalProposal, applyTurnUsage, markAllowanceUsed } from '@/services/coach/turns';
+import {
+  VOICE_MAX_DURATION_MS,
+  type GoalProgressProposal,
+  type ReplyAudio,
+  type VoiceAudioMimeType,
+  type VoiceTurnRequest,
+  type VoiceTurnResponse,
+} from '@/services/coach/types';
 import { createConversation } from '@/services/conversationsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { currentAccount, isUsedUp, resetLabel } from '@/features/usage/usage';
+import { useUsageStore } from '@/stores/usageStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 import { theme } from '@/ui';
@@ -66,6 +74,8 @@ export default function VoiceCallScreen() {
   const startedAt = useRef(0);
   const autoStop = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callActive = useRef(true);
+  /** Bumped on interrupt; a reply that is still playing parts stops when it changes. */
+  const playback = useRef(0);
 
   const [pulse] = useState(() => new Animated.Value(1));
   const [bars] = useState(() => Array.from({ length: BAR_COUNT }, () => new Animated.Value(0.35)));
@@ -150,27 +160,62 @@ export default function VoiceCallScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const playReply = async (audio: { base64: string }) => {
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
+  /** Plays one clip to the end. Resolves early if the user interrupts or leaves. */
+  const playClip = async (audio: ReplyAudio) => {
     const file = new File(Paths.cache, `byt-reply-${Date.now()}.wav`);
     file.write(audio.base64, { encoding: 'base64' });
     playbackFile.current = file;
     const p = createAudioPlayer(file.uri);
     player.current = p;
-    setCallState('speaking');
     p.play();
     // Finished when it stops playing at the end, is interrupted, or never starts.
     const started = now();
     let hasPlayed = false;
     while (player.current === p && callActive.current) {
-      await sleep(200);
+      await sleep(100);
       if (p.playing) hasPlayed = true;
-      const atEnd = p.duration > 0 && p.currentTime >= p.duration - 0.25;
+      const atEnd = p.duration > 0 && p.currentTime >= p.duration - 0.15;
       if (hasPlayed && !p.playing && atEnd) break;
       if (!hasPlayed && now() - started > PLAYBACK_START_TIMEOUT_MS) throw new Error('playback did not start');
     }
     if (player.current === p) releasePlayback();
-    if (callActive.current) setCallState('idle');
+  };
+
+  /**
+   * The first part arrives with the reply, so the coach starts talking at once. The
+   * other parts are requested straight away, in parallel, and play in order.
+   */
+  const playReply = async (response: VoiceTurnResponse) => {
+    if (!response.replyAudio) return;
+    const turn = ++playback.current;
+    const later = Array.from({ length: Math.max(0, response.audioParts - 1) }, (_, i) =>
+      coachClient.voiceAudio(response.requestId, i + 1).catch(() => null)
+    );
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
+    setCallState('speaking');
+    try {
+      await playClip(response.replyAudio);
+      for (const next of later) {
+        if (playback.current !== turn || !callActive.current) return;
+        const audio = await next;
+        if (playback.current !== turn || !callActive.current) return;
+        if (!audio) {
+          showToast('Part of the reply couldn’t be spoken — it’s shown above.');
+          return;
+        }
+        await playClip(audio);
+      }
+    } finally {
+      if (playback.current === turn && callActive.current) setCallState('idle');
+    }
+  };
+
+  const showAllowanceUsed = () => {
+    const account = currentAccount(useUsageStore.getState().account);
+    Alert.alert("You've used today's coaching allowance", `It resets ${resetLabel(account.resetsAt)}. Your conversation is saved.`, [
+      { text: 'OK', style: 'cancel' },
+      { text: 'Settings', onPress: () => router.push('/settings') },
+    ]);
   };
 
   const sendTurn = async (request: VoiceTurnRequest) => {
@@ -180,12 +225,12 @@ export default function VoiceCallScreen() {
     try {
       const response = await coachClient.voiceTurn(request);
       if (!callActive.current) return;
-      applyTurnCredits(response.credits);
+      applyTurnUsage(response.usage);
       setCoachReply(response.reply.text);
       if (response.proposal) setProposal(response.proposal);
       if (response.replyAudio) {
         try {
-          await playReply(response.replyAudio);
+          await playReply(response);
         } catch {
           showToast("Couldn't play the coach's voice — the reply is shown above.");
           setCallState('idle');
@@ -198,10 +243,8 @@ export default function VoiceCallScreen() {
       const coachError = toCoachError(error);
       setCallState('idle');
       if (coachError.reason === 'no-credits') {
-        Alert.alert("You've run out of credits", 'Each voice message uses 1 credit. Manage your plan in Settings.', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Settings', onPress: () => router.push('/settings') },
-        ]);
+        markAllowanceUsed();
+        showAllowanceUsed();
         return;
       }
       if (coachError.retryable) setRetryRequest(request);
@@ -211,12 +254,8 @@ export default function VoiceCallScreen() {
 
   const startRecording = async () => {
     if (callState !== 'idle' || !conversationId) return;
-    const account = useCreditsStore.getState().account;
-    if (account && account.creditsRemaining <= 0) {
-      Alert.alert("You've run out of credits", 'Each voice message uses 1 credit. Manage your plan in Settings.', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Settings', onPress: () => router.push('/settings') },
-      ]);
+    if (isUsedUp(currentAccount(useUsageStore.getState().account))) {
+      showAllowanceUsed();
       return;
     }
     try {
@@ -278,6 +317,7 @@ export default function VoiceCallScreen() {
   };
 
   const interrupt = () => {
+    playback.current += 1;
     releasePlayback();
     setCallState('idle');
   };

@@ -10,6 +10,9 @@ export type ConversationMode = 'normal' | 'reflection';
 export type Channel = 'text' | 'voice';
 export type Plan = 'standard' | 'plus';
 export type TurnKind = 'message' | 'opener';
+/** How long the coach thinks before replying: standard (fastest) → deepest. */
+export type CoachThinking = 'standard' | 'deeper' | 'deepest';
+export const COACH_THINKING: readonly CoachThinking[] = ['standard', 'deeper', 'deepest'];
 
 export type CoachTurnRequest = {
   /** /^[A-Za-z0-9_-]{8,64}$/ — unique per user turn, reused on retry. */
@@ -20,6 +23,8 @@ export type CoachTurnRequest = {
   text?: string;
   mode: ConversationMode;
   reflectionCheckInId?: string;
+  /** Defaults to 'standard'. */
+  thinking?: CoachThinking;
 };
 
 export type GoalProgressProposal = { goalId: string; progress: number; reason: string };
@@ -33,10 +38,16 @@ export type CoachTurnResponse = {
   /** Null for session openers (the coach speaks first). */
   userMessage: CoachMessagePayload | null;
   reply: CoachMessagePayload;
-  credits: { remaining: number; periodKey: string; charged: 0 | 1 };
+  usage: UsageSnapshot;
   /** Present only when the user reported concrete goal progress. The app asks before applying it. */
   proposal?: GoalProgressProposal;
 };
+
+/**
+ * The day's AI allowance, in Gemini tokens. `metered` is false for turns that
+ * never count (openers, replays of a finished turn).
+ */
+export type UsageSnapshot = { used: number; limit: number; resetsAt: number; metered: boolean };
 
 export const VOICE_MIME_TYPES = ['audio/mp4', 'audio/m4a', 'audio/aac', 'audio/webm', 'audio/wav'] as const;
 export type VoiceMimeType = (typeof VOICE_MIME_TYPES)[number];
@@ -48,19 +59,28 @@ export type VoiceTurnRequest = {
   reflectionCheckInId?: string;
   audio: { base64: string; mimeType: VoiceMimeType; durationMs: number };
   wantAudio?: boolean;
+  thinking?: CoachThinking;
 };
+
+export type ReplyAudio = { base64: string; mimeType: 'audio/wav' };
 
 export type VoiceTurnResponse = CoachTurnResponse & {
   transcript: string;
-  replyAudio: { base64: string; mimeType: 'audio/wav' } | null;
+  /**
+   * The first part of the spoken reply, so playback starts while the rest is made.
+   * Fetch parts 1..audioParts-1 with voiceAudio. Null when audio wasn't wanted or failed.
+   */
+  replyAudio: ReplyAudio | null;
+  audioParts: number;
 };
+
+/** One later part of a finished voice turn's spoken reply. */
+export type VoiceAudioRequest = { requestId: string; part: number };
+export type VoiceAudioResponse = { requestId: string; part: number; replyAudio: ReplyAudio | null };
 
 export type AccountResponse = {
   plan: Plan;
-  creditsRemaining: number;
-  monthlyAllowance: number;
-  creditsPeriodKey: string;
-  resetsAt: number;
+  usage: Omit<UsageSnapshot, 'metered'>;
   /** True once any prototype data on users/{uid} has been copied into the v2 collections. */
   legacyImported: boolean;
 };
@@ -85,8 +105,8 @@ export type CoachErrorDetails = {
   reason: CoachErrorReason;
   retryable: boolean;
   retryAfterSeconds?: number;
-  remaining?: number;
-  resetsAt?: string;
+  /** Daily-limit errors: when the allowance resets (epoch ms). */
+  resetsAt?: number;
   refunded?: boolean;
 };
 

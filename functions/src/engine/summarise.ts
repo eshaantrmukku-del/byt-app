@@ -20,7 +20,7 @@ export async function updateSummary(
   llm: LlmClient,
   model: string,
   ctx: CoachContextData,
-): Promise<{ text: string; messageCount: number } | undefined> {
+): Promise<{ text: string; messageCount: number; tokens: { input: number; output: number } } | undefined> {
   const { messages, upTo } = unsummarised(ctx);
   if (!messages.length) return undefined;
   const transcript = messages.map((m) => `${m.role === 'user' ? 'User' : 'Coach'}: ${m.text}`).join('\n');
@@ -34,5 +34,5 @@ export async function updateSummary(
     timeoutMs: TIMEOUTS.summaryMs,
   });
   const text = res.text.trim().slice(0, 2000);
-  return text ? { text, messageCount: upTo } : undefined;
+  return text ? { text, messageCount: upTo, tokens: { input: res.inputTokens ?? 0, output: res.outputTokens ?? 0 } } : undefined;
 }

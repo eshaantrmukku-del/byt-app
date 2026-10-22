@@ -10,7 +10,7 @@ import { CoachError, toHttpsError } from './errors.js';
 import { GeminiClient } from './llm/gemini.js';
 import { MockLlm } from './llm/mock.js';
 import type { LlmClient } from './llm/types.js';
-import { handleCoachTurn, handleGetAccount, handleVoiceTurn, type TurnDeps } from './turn/handlers.js';
+import { handleCoachTurn, handleGetAccount, handleVoiceAudio, handleVoiceTurn, type TurnDeps } from './turn/handlers.js';
 import { GeminiVoice } from './voice/gemini.js';
 import { MockVoice } from './voice/mock.js';
 import type { VoiceProvider } from './voice/types.js';
@@ -68,14 +68,21 @@ function wrap<T>(fn: (req: CallableRequest) => Promise<T>) {
   };
 }
 
+// Deepest thinking can take most of a minute on its own; leave room for a guarded rewrite.
 export const coachTurn = onCall(
-  { ...base, secrets: [GEMINI_API_KEY], timeoutSeconds: 60 },
+  { ...base, secrets: [GEMINI_API_KEY], timeoutSeconds: 120 },
   wrap((req) => handleCoachTurn(deps, { uid: req.auth?.uid }, req.data)),
 );
 
 export const voiceTurn = onCall(
-  { ...base, secrets: [GEMINI_API_KEY], timeoutSeconds: 90, memory: '1GiB' },
+  { ...base, secrets: [GEMINI_API_KEY], timeoutSeconds: 120, memory: '1GiB' },
   wrap((req) => handleVoiceTurn(deps, { uid: req.auth?.uid }, req.data)),
+);
+
+/** Later parts of a spoken reply, fetched while the first part plays. */
+export const voiceAudio = onCall(
+  { ...base, secrets: [GEMINI_API_KEY], timeoutSeconds: 30 },
+  wrap((req) => handleVoiceAudio(deps, { uid: req.auth?.uid }, req.data)),
 );
 
 export const getAccount = onCall(

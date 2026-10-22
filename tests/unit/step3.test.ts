@@ -4,7 +4,8 @@ import { computeStreaks, toggleMood } from '@/features/checkIns/checkIns';
 import { addDays, localDateKey } from '@/features/dates';
 import { diffGoal, NEW_GOAL_DRAFT, normaliseProgress, resolveGoalDraft } from '@/features/goals/goals';
 import { prepareJournalText, sortJournal } from '@/features/journal/journal';
-import { parseAccount, parseCheckIn, parseGoal, parseJournalEntry, toMillis } from '@/features/parse';
+import { parseCheckIn, parseGoal, parseJournalEntry, toMillis } from '@/features/parse';
+import { currentAccount, isUsedUp, parseAccountDoc, percentLeft } from '@/features/usage/usage';
 import type { JournalEntry } from '@/types/models';
 
 describe('dates', () => {
@@ -119,10 +120,26 @@ describe('parsing Firestore documents', () => {
     expect(parseJournalEntry('j', { text: '' })).toBeNull();
   });
 
-  it('reads the server-owned account doc', () => {
-    expect(parseAccount(undefined)).toBeNull();
-    expect(parseAccount({ plan: 'standard', creditsRemaining: 148.7, creditsPeriodKey: '2026-10' })).toEqual({
-      plan: 'standard', creditsRemaining: 148, creditsPeriodKey: '2026-10',
+  it('reads the server-owned account doc as today’s allowance', () => {
+    const now = Date.UTC(2026, 9, 22, 15);
+    const tomorrow = Date.UTC(2026, 9, 23);
+    expect(parseAccountDoc(undefined, now)).toBeNull();
+    expect(parseAccountDoc({ plan: 'standard', dayKey: '2026-10-22', tokensUsed: 50_000, dailyTokenLimit: 200_000 }, now)).toEqual({
+      plan: 'standard', used: 50_000, limit: 200_000, resetsAt: tomorrow,
     });
+    // Yesterday's counter, or a monthly-credit doc, means a fresh day.
+    expect(parseAccountDoc({ plan: 'plus', dayKey: '2026-10-21', tokensUsed: 199_000, dailyTokenLimit: 200_000 }, now)).toMatchObject({ plan: 'plus', used: 0 });
+    expect(parseAccountDoc({ plan: 'standard', creditsRemaining: 148, creditsPeriodKey: '2026-10' }, now)).toMatchObject({ used: 0, limit: 200_000 });
+  });
+
+  it('shows the allowance as percent left, and refreshes it after the reset time', () => {
+    const now = Date.UTC(2026, 9, 22, 15);
+    const account = { plan: 'standard' as const, used: 150_000, limit: 200_000, resetsAt: Date.UTC(2026, 9, 23) };
+    expect(percentLeft(account)).toBe(25);
+    expect(isUsedUp(account)).toBe(false);
+    expect(isUsedUp({ ...account, used: 200_500 })).toBe(true);
+    expect(percentLeft({ ...account, used: 250_000 })).toBe(0);
+    expect(currentAccount({ ...account, used: 200_000 }, Date.UTC(2026, 9, 23, 0, 1))).toMatchObject({ used: 0, resetsAt: Date.UTC(2026, 9, 24) });
+    expect(currentAccount(null, now)).toMatchObject({ used: 0, limit: 200_000 });
   });
 });

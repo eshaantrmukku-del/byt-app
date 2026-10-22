@@ -24,7 +24,7 @@ const MESSAGES: Record<CoachErrorReason, string> = {
   'no-speech': "I couldn't catch that. Tap the orb and try again.",
   'conversation-not-found': 'This conversation is no longer available. Start a new one.',
   'check-in-not-found': 'That check-in is no longer available.',
-  'no-credits': "You've run out of credits for this month.",
+  'no-credits': "You've used today's coaching allowance. It resets tomorrow.",
   'rate-limited': 'You’re sending messages quickly. Give it a moment and try again.',
   'in-progress': 'Still working on your last message…',
   'provider-unavailable': "I'm having trouble connecting right now. Please try again.",

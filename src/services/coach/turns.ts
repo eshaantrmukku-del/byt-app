@@ -1,28 +1,29 @@
-import { currentPeriodKey } from '@/features/chat/chat';
 import type { PendingTurn } from '@/features/chat/chat';
 import { normaliseProgress } from '@/features/goals/goals';
 import { updateGoal } from '@/services/goalsService';
 import { useChatStore, usePendingTurnsStore } from '@/stores/chatStore';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { useUsageStore } from '@/stores/usageStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 import type { Conversation } from '@/types/models';
 
 import { coachClient, newRequestId, openerRequestId } from './coachClient';
 import { toCoachError } from './errors';
-import type { GoalProgressProposal } from './types';
+import type { GoalProgressProposal, UsageSnapshot } from './types';
 
 export type SendResult =
   | { ok: true; proposal?: GoalProgressProposal }
   | { ok: false; reason: 'no-credits' | 'failed'; message: string };
 
-export function applyTurnCredits(credits: { remaining: number; periodKey: string }) {
-  const current = useCreditsStore.getState().account;
-  useCreditsStore.getState().setAccount({
-    plan: current?.plan ?? 'standard',
-    creditsRemaining: credits.remaining,
-    creditsPeriodKey: credits.periodKey || current?.creditsPeriodKey || currentPeriodKey(),
-    ...(current?.monthlyAllowance !== undefined ? { monthlyAllowance: current.monthlyAllowance } : {}),
-  });
+/** Every turn response carries today's usage; the app shows it as-is. */
+export function applyTurnUsage(usage: UsageSnapshot) {
+  const current = useUsageStore.getState().account;
+  useUsageStore.getState().setAccount({ plan: current?.plan ?? 'standard', used: usage.used, limit: usage.limit, resetsAt: usage.resetsAt });
+}
+
+/** The server said today's allowance is used up. */
+export function markAllowanceUsed() {
+  const current = useUsageStore.getState().account;
+  if (current) useUsageStore.getState().setAccount({ ...current, used: Math.max(current.used, current.limit) });
 }
 
 function target(conversation: Conversation) {
@@ -43,7 +44,7 @@ async function deliver(turn: PendingTurn, conversation: Conversation): Promise<S
       text: turn.text,
       ...target(conversation),
     });
-    applyTurnCredits(response.credits);
+    applyTurnUsage(response.usage);
     pending.update(turn.requestId, {
       status: 'delivered',
       reply: { text: response.reply.text, createdAt: response.reply.createdAt },
@@ -52,10 +53,9 @@ async function deliver(turn: PendingTurn, conversation: Conversation): Promise<S
   } catch (error) {
     const coachError = toCoachError(error);
     if (coachError.reason === 'no-credits') {
-      // Nothing was charged or stored: give the text back to the composer.
+      // Nothing was counted or stored: give the text back to the composer.
       pending.remove(turn.requestId);
-      const account = useCreditsStore.getState().account;
-      if (account) useCreditsStore.getState().setAccount({ ...account, creditsRemaining: 0 });
+      markAllowanceUsed();
       return { ok: false, reason: 'no-credits', message: coachError.message };
     }
     pending.update(turn.requestId, { status: 'failed', error: coachError.message });
@@ -103,7 +103,7 @@ export async function requestOpener(conversation: Conversation): Promise<void> {
           kind: 'opener',
           ...target(conversation),
         });
-        applyTurnCredits(response.credits);
+        applyTurnUsage(response.usage);
         // Keep the reply on screen until the `{requestId}_reply` document arrives.
         useChatStore.getState().setOpener(conversation.id, { state: 'sent', text: response.reply.text });
         return;

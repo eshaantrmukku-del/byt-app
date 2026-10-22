@@ -2,46 +2,71 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { describe, expect, it } from 'vitest';
 
 import { resolveAccount } from '../../src/credits/ledger.js';
-import { checkRateLimit, nextPeriodStart, periodKey } from '../../src/credits/period.js';
+import { DAILY_TOKEN_LIMIT } from '../../src/config.js';
+import { checkRateLimit, dayKey, nextDayStart } from '../../src/credits/period.js';
 import { CoachError, toHttpsError } from '../../src/errors.js';
-import { parseCoachTurnRequest, parseVoiceTurnRequest } from '../../src/validation.js';
+import { MAX_AUDIO_PARTS, parseCoachTurnRequest, parseVoiceAudioRequest, parseVoiceTurnRequest } from '../../src/validation.js';
+import { voiceParts } from '../../src/voice/parts.js';
 
 const OCT = Date.UTC(2026, 9, 4, 12);
 
-describe('credit periods', () => {
-  it('uses UTC calendar months', () => {
-    expect(periodKey(OCT)).toBe('2026-10');
-    expect(periodKey(Date.UTC(2026, 11, 31, 23, 59))).toBe('2026-12');
-    expect(periodKey(Date.UTC(2027, 0, 1))).toBe('2027-01');
-    expect(nextPeriodStart(OCT)).toBe(Date.UTC(2026, 10, 1));
+describe('daily allowance', () => {
+  it('uses UTC calendar days', () => {
+    expect(dayKey(OCT)).toBe('2026-10-04');
+    expect(dayKey(Date.UTC(2026, 11, 31, 23, 59))).toBe('2026-12-31');
+    expect(nextDayStart(OCT)).toBe(Date.UTC(2026, 9, 5));
+    expect(nextDayStart(Date.UTC(2026, 11, 31, 23, 59))).toBe(Date.UTC(2027, 0, 1));
   });
 
-  it('creates a 150-credit standard beta account on first use', () => {
+  it('creates a standard beta account with today’s allowance on first use', () => {
     const { account, changed } = resolveAccount(undefined, OCT);
     expect(changed).toBe(true);
-    expect(account).toMatchObject({ plan: 'standard', betaTier: true, creditsRemaining: 150, creditsPeriodKey: '2026-10' });
+    expect(account).toEqual({ plan: 'standard', betaTier: true, dayKey: '2026-10-04', tokensUsed: 0, dailyTokenLimit: DAILY_TOKEN_LIMIT.standard });
   });
 
-  it('resets lazily when the month changes and keeps the plan', () => {
-    const { account, changed } = resolveAccount(
-      { plan: 'plus', creditsRemaining: 0, creditsPeriodKey: '2026-09', monthlyAllowance: 150 },
-      OCT,
-    );
+  it('starts a monthly-credit account from zero tokens and keeps the plan', () => {
+    const { account, changed } = resolveAccount({ plan: 'plus', creditsRemaining: 3, creditsPeriodKey: '2026-10' } as never, OCT);
     expect(changed).toBe(true);
-    expect(account).toMatchObject({ plan: 'plus', creditsRemaining: 150, creditsPeriodKey: '2026-10' });
+    expect(account).toMatchObject({ plan: 'plus', tokensUsed: 0, dayKey: '2026-10-04' });
   });
 
-  it('leaves the current month alone', () => {
+  it('resets lazily when the day changes', () => {
+    const { account, changed } = resolveAccount({ plan: 'standard', dayKey: '2026-10-03', tokensUsed: 199_000, dailyTokenLimit: DAILY_TOKEN_LIMIT.standard }, OCT);
+    expect(changed).toBe(true);
+    expect(account.tokensUsed).toBe(0);
+  });
+
+  it('leaves today alone', () => {
     const { account, changed } = resolveAccount(
-      { plan: 'standard', betaTier: true, creditsRemaining: 7, creditsPeriodKey: '2026-10', monthlyAllowance: 150 },
+      { plan: 'standard', betaTier: true, dayKey: '2026-10-04', tokensUsed: 4321, dailyTokenLimit: DAILY_TOKEN_LIMIT.standard },
       OCT,
     );
     expect(changed).toBe(false);
-    expect(account.creditsRemaining).toBe(7);
+    expect(account.tokensUsed).toBe(4321);
   });
 
   it('treats unknown plans as standard', () => {
-    expect(resolveAccount({ plan: 'gold' as never, creditsRemaining: 3, creditsPeriodKey: '2026-10' }, OCT).account.plan).toBe('standard');
+    expect(resolveAccount({ plan: 'gold' as never, dayKey: '2026-10-04', tokensUsed: 3 }, OCT).account.plan).toBe('standard');
+  });
+});
+
+describe('spoken reply parts', () => {
+  it('starts with one sentence, then sentence-aligned chunks', () => {
+    const reply = 'It sounds like part of you wants this and part of you is holding back. What is the part that is holding back afraid of? Take a moment with that. There is no rush.';
+    const parts = voiceParts(reply);
+    expect(parts[0]).toBe('It sounds like part of you wants this and part of you is holding back.');
+    expect(parts.join(' ')).toBe(reply);
+    expect(voiceParts(reply)).toEqual(parts);
+  });
+
+  it('never starts with a clipped fragment, and caps the number of parts', () => {
+    expect(voiceParts('Mm. That matters. What would you like to do next?')[0]).toBe('Mm. That matters. What would you like to do next?');
+    const long = Array.from({ length: 60 }, (_, i) => `This is sentence number ${i} of a long reply.`).join(' ');
+    const parts = voiceParts(long);
+    expect(parts.length).toBe(MAX_AUDIO_PARTS);
+    expect(parts.join(' ')).toBe(long);
+    expect(voiceParts('')).toEqual([]);
+    expect(voiceParts('No full stop at the end')).toEqual(['No full stop at the end']);
   });
 });
 
@@ -114,16 +139,31 @@ describe('request validation', () => {
   });
 });
 
+describe('thinking and audio part requests', () => {
+  const base = { requestId: 'req12345678', conversationId: 'c1', kind: 'message', text: 'hi', mode: 'normal' };
+  it('accepts the three thinking levels and nothing else', () => {
+    expect(parseCoachTurnRequest(base)).not.toHaveProperty('thinking');
+    for (const thinking of ['standard', 'deeper', 'deepest']) expect(parseCoachTurnRequest({ ...base, thinking }).thinking).toBe(thinking);
+    expect(() => parseCoachTurnRequest({ ...base, thinking: 'max' })).toThrow(CoachError);
+    expect(() => parseCoachTurnRequest({ ...base, thinking: 'high' })).toThrow(CoachError);
+  });
+
+  it('only asks for later parts of a known turn', () => {
+    expect(parseVoiceAudioRequest({ requestId: 'req12345678', part: 1 })).toEqual({ requestId: 'req12345678', part: 1 });
+    for (const part of [0, -1, 1.5, MAX_AUDIO_PARTS, '1']) expect(() => parseVoiceAudioRequest({ requestId: 'req12345678', part })).toThrow(CoachError);
+    expect(() => parseVoiceAudioRequest({ requestId: 'x', part: 1 })).toThrow(CoachError);
+  });
+});
+
 describe('error mapping', () => {
   it('uses the reason names and codes the app already handles', () => {
-    const exhausted = toHttpsError(new CoachError('no-credits', { remaining: 0, resetsAt: '2026-11-01T00:00:00.000Z' }));
+    const exhausted = toHttpsError(new CoachError('no-credits', { resetsAt: Date.UTC(2026, 9, 5) }));
     expect(exhausted).toBeInstanceOf(HttpsError);
     expect(exhausted.code).toBe('resource-exhausted');
     expect(exhausted.details).toEqual({
       reason: 'no-credits',
       retryable: false,
-      remaining: 0,
-      resetsAt: '2026-11-01T00:00:00.000Z',
+      resetsAt: Date.UTC(2026, 9, 5),
     });
     expect(toHttpsError(new CoachError('provider-unavailable', { refunded: true })).details).toMatchObject({ retryable: true, refunded: true });
     expect(toHttpsError(new CoachError('in-progress')).code).toBe('aborted');

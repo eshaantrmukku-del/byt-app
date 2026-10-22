@@ -12,6 +12,8 @@ import type { EngineInput, EngineResult, GuardIssue, TurnAnalysis } from './type
 export type EngineOptions = {
   models?: Partial<Record<'analysis' | 'reply' | 'summary', string>>;
   replyThinking?: ThinkingLevel;
+  /** Budget for the reply call; deeper thinking needs longer. */
+  replyTimeoutMs?: number;
   /** Skip the separate analysis call and use the heuristic reading (for latency experiments). */
   skipModelAnalysis?: boolean;
 };
@@ -28,6 +30,7 @@ type ReplyJson = { reply?: unknown; goalProgress?: { goalId?: unknown; progress?
 export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts: EngineOptions = {}): Promise<EngineResult> {
   const started = Date.now();
   const models = { ...MODELS, ...opts.models };
+  const replyTimeoutMs = opts.replyTimeoutMs ?? TIMEOUTS.replyMs;
   const { text, channel } = input;
   const ctx = input.context;
   const window = ctx.history.slice(-CONTEXT.historyMessages);
@@ -86,7 +89,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
       jsonSchema: REPLY_SCHEMA as unknown as Record<string, unknown>,
       thinking: opts.replyThinking ?? 'low',
       maxOutputTokens: 4096,
-      timeoutMs: TIMEOUTS.replyMs,
+      timeoutMs: replyTimeoutMs,
       mockHints: { move: plan.primary, analysis, channel, text, profileName: ctx.profile.displayName },
     });
     tokensIn += res.inputTokens ?? 0;
@@ -110,7 +113,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
   const guard = (reply: string) => checkReply({ reply, plan, channel, profile: ctx.profile, userTexts: recentUserTexts });
   let issues: GuardIssue[] = guard(draft.reply);
   let regenerated = false;
-  if (hasBlocking(issues) && Date.now() - started < TIMEOUTS.replyMs) {
+  if (hasBlocking(issues) && Date.now() - started < replyTimeoutMs) {
     try {
       const retry = await generate([
         ...messages,
@@ -147,10 +150,14 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
   }
 
   const summary = await summaryPromise;
+  if (summary) {
+    tokensIn += summary.tokens.input;
+    tokensOut += summary.tokens.output;
+  }
   return {
     reply,
     ...(proposal ? { proposal } : {}),
-    ...(summary ? { summary } : {}),
+    ...(summary ? { summary: { text: summary.text, messageCount: summary.messageCount } } : {}),
     trace: {
       analysis,
       analysisSource,

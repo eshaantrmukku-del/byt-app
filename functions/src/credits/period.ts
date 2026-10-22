@@ -1,14 +1,13 @@
 import { LIMITS } from '../config.js';
 
-/** Credit periods are UTC calendar months, e.g. "2026-10". */
-export function periodKey(nowMs: number): string {
-  const d = new Date(nowMs);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+/** The daily allowance runs per UTC calendar day, e.g. "2026-10-22". */
+export function dayKey(nowMs: number): string {
+  return new Date(nowMs).toISOString().slice(0, 10);
 }
 
-export function nextPeriodStart(nowMs: number): number {
+export function nextDayStart(nowMs: number): number {
   const d = new Date(nowMs);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
 }
 
 export type RateCheck = { ok: true; recent: number[] } | { ok: false; retryAfterMs: number };

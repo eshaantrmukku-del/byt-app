@@ -5,6 +5,7 @@ import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { DAILY_TOKEN_LIMIT } from '../../src/config.js';
 import { handleCoachTurn, handleGetAccount, type TurnDeps } from '../../src/turn/handlers.js';
 import { MockLlm } from '../../src/llm/mock.js';
 import { MockVoice } from '../../src/voice/mock.js';
@@ -62,7 +63,7 @@ describe('legacy import', () => {
 
     const account = await handleGetAccount(deps(firestore), { uid: user }, { timeZone: 'Europe/London' });
     expect(account.legacyImported).toBe(true);
-    expect(account.creditsRemaining).toBe(150);
+    expect(account.usage).toMatchObject({ used: 0, limit: DAILY_TOKEN_LIMIT.standard });
 
     expect((await firestore.doc(`users/${user}`).get()).data()).toEqual(before);
 
@@ -132,7 +133,8 @@ describe('legacy import', () => {
       text: 'I keep putting off applying for university.',
       mode: 'normal',
     });
-    expect(result.credits).toMatchObject({ remaining: 149, charged: 1 });
+    expect(result.usage).toMatchObject({ metered: true });
+    expect(result.usage.used).toBeGreaterThan(0);
     const conv = (await firestore.doc(`users/${user}/conversations/1759940000000`).get()).data();
     expect(conv?.messageCount).toBe(4);
   });

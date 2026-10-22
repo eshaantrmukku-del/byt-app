@@ -23,7 +23,8 @@ const MESSAGES: Record<CoachErrorReason, string> = {
   'invalid-request': 'That message couldn’t be sent. Please try again.',
   'text-too-long': 'That message is too long. Try splitting it up.',
   'audio-too-long': 'Keep voice turns under a minute.',
-  'no-credits': "You've run out of credits for this month.",
+  // The reason keeps its original name so older app builds still recognise it.
+  'no-credits': "You've used today's coaching allowance. It resets tomorrow.",
   'rate-limited': 'You’re sending messages quickly. Give it a moment and try again.',
   'in-progress': 'Still working on your last message…',
   'provider-unavailable': "I'm having trouble connecting right now. Please try again.",
@@ -44,8 +45,7 @@ const RETRYABLE: ReadonlySet<CoachErrorReason> = new Set([
 
 export type CoachErrorExtra = {
   retryAfterSeconds?: number;
-  remaining?: number;
-  resetsAt?: string;
+  resetsAt?: number;
   refunded?: boolean;
 };
 

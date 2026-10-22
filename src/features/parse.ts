@@ -1,7 +1,6 @@
 import {
   GOAL_CATEGORIES,
   GOAL_STATUSES,
-  type Account,
   type ChatMessage,
   type CheckIn,
   type Conversation,
@@ -88,15 +87,5 @@ export function parseMessage(id: string, d: Data): ChatMessage | null {
     clientTurnId: str(d.clientTurnId) || id,
     channel: d.channel === 'voice' ? 'voice' : 'text',
     createdAt: toMillis(d.createdAt),
-  };
-}
-
-export function parseAccount(d: Data | undefined): Account | null {
-  if (!d || typeof d.creditsRemaining !== 'number') return null;
-  return {
-    plan: d.plan === 'plus' ? 'plus' : 'standard',
-    creditsRemaining: Math.max(0, Math.floor(d.creditsRemaining)),
-    creditsPeriodKey: str(d.creditsPeriodKey),
-    ...(typeof d.monthlyAllowance === 'number' ? { monthlyAllowance: Math.max(0, Math.floor(d.monthlyAllowance)) } : {}),
   };
 }

@@ -14,11 +14,16 @@ export const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 export type VoiceAudioMimeType = 'audio/mp4' | 'audio/m4a' | 'audio/aac' | 'audio/webm' | 'audio/wav';
 
+/** How long the coach thinks before replying (Settings → Coach thinking). */
+export type CoachThinking = 'standard' | 'deeper' | 'deepest';
+export const COACH_THINKING: readonly CoachThinking[] = ['standard', 'deeper', 'deepest'];
+
 type TurnTarget = {
   requestId: string;
   conversationId: string;
   mode: ConversationMode;
   reflectionCheckInId?: IsoDate;
+  thinking?: CoachThinking;
 };
 
 export type CoachTurnRequest = TurnTarget &
@@ -41,21 +46,28 @@ export type CoachTurnResponse = {
   userMessage: CoachMessagePayload | null;
   /** User message id is `requestId`; coach message id is `{requestId}_reply`. */
   reply: CoachMessagePayload;
-  credits: { remaining: number; periodKey: string; charged: 0 | 1 };
+  usage: UsageSnapshot;
   proposal?: GoalProgressProposal;
 };
 
+/**
+ * Today's AI allowance in tokens (UTC day). `metered` is false for turns that
+ * never count: openers and replays of a finished turn.
+ */
+export type UsageSnapshot = { used: number; limit: number; resetsAt: number; metered: boolean };
+
+export type ReplyAudio = { base64: string; mimeType: 'audio/wav' };
+
 export type VoiceTurnResponse = CoachTurnResponse & {
   transcript: string;
-  replyAudio: { base64: string; mimeType: 'audio/wav' } | null;
+  /** First part of the spoken reply; fetch parts 1..audioParts-1 with voiceAudio while it plays. */
+  replyAudio: ReplyAudio | null;
+  audioParts: number;
 };
 
 export type AccountSnapshot = {
   plan: Plan;
-  creditsRemaining: number;
-  monthlyAllowance: number;
-  creditsPeriodKey: string;
-  resetsAt: number;
+  usage: Omit<UsageSnapshot, 'metered'>;
   /** True once prototype data on users/{uid} has been copied into the v2 collections. */
   legacyImported: boolean;
 };

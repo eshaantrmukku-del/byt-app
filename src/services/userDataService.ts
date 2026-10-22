@@ -11,13 +11,14 @@ import {
 } from 'firebase/firestore';
 
 import { friendlyError, isPermissionDenied } from '@/features/auth/authErrors';
-import { parseAccount, parseCheckIn, parseConversation, parseGoal, parseJournalEntry } from '@/features/parse';
-import { legacyAccount, legacyChats, legacyCheckIns, legacyGoals, legacyJournal } from '@/features/profile/legacyAccount';
+import { parseCheckIn, parseConversation, parseGoal, parseJournalEntry } from '@/features/parse';
+import { parseAccountDoc } from '@/features/usage/usage';
+import { legacyChats, legacyCheckIns, legacyGoals, legacyJournal } from '@/features/profile/legacyAccount';
 import { requireFirebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
 import { coachClient } from '@/services/coach/coachClient';
 import { useChatStore } from '@/stores/chatStore';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { useUsageStore } from '@/stores/usageStore';
 import { useUserDataStore, type CollectionKey } from '@/stores/userDataStore';
 
 const LOAD_TIMEOUT_MS = 15_000;
@@ -38,7 +39,7 @@ function rows<T>(snap: QuerySnapshot<DocumentData>, parse: (id: string, d: Docum
 }
 
 /**
- * Shows goals, check-ins, journal, chats and credits that the prototype saved
+ * Shows goals, check-ins, journal and chats that the prototype saved
  * on the user document itself. They stay visible next to any subcollection rows
  * until getAccount has copied them across (see functions/src/legacy).
  */
@@ -55,8 +56,6 @@ export function applyLegacyAccount(uid: string, data: DocumentData | undefined):
     if (existing?.status === 'ready' && existing.items.length > 0) continue;
     useChatStore.getState().setMessages(chat.conversation.id, { status: 'ready', items: chat.messages, error: null });
   }
-  const account = legacyAccount(data);
-  if (account && !useCreditsStore.getState().account) useCreditsStore.getState().setAccount(account);
 }
 
 /** Subscribes to the user's goals, check-ins, journal and credits. Returns an unsubscribe. */
@@ -129,26 +128,20 @@ export function watchUserData(uid: string): () => void {
       doc(requireFirebase().db, 'users', uid, 'private', 'account'),
       (snap) => {
         if (snap.data()?.legacyImport) useUserDataStore.getState().setLegacyImported(uid);
-        const parsed = parseAccount(snap.data());
-        // A missing doc is normal until getAccount creates it. Don't wipe credits
-        // already read from the user document.
-        if (parsed) useCreditsStore.getState().setAccount(parsed);
+        // A missing doc is normal until getAccount creates it.
+        const parsed = parseAccountDoc(snap.data());
+        if (parsed) useUsageStore.getState().setAccount(parsed);
       },
-      // Live rules deny private/account until they are deployed. Keep the prototype balance.
+      // Rules that aren't deployed yet deny private/account; the default allowance shows.
       () => undefined
     ),
   ];
 
-  // Creates the account doc lazily (150 credits) and copies a prototype account
-  // into the subcollections once. Nothing waits on it: it may not be deployed yet.
+  // Creates the account doc lazily and copies a prototype account into the
+  // subcollections once. Nothing waits on it: it may not be deployed yet.
   void coachClient.getAccount().then((account) => {
     if (account.legacyImported) useUserDataStore.getState().setLegacyImported(uid);
-    useCreditsStore.getState().setAccount({
-      plan: account.plan,
-      creditsRemaining: account.creditsRemaining,
-      creditsPeriodKey: account.creditsPeriodKey,
-      monthlyAllowance: account.monthlyAllowance,
-    });
+    useUsageStore.getState().setAccount({ plan: account.plan, ...account.usage });
   }).catch(() => undefined);
 
   return () => stops.forEach((stop) => stop());

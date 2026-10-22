@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { legacyAccount, legacyChats, legacyCheckIns, legacyGoals, legacyJournal } from '@/features/profile/legacyAccount';
+import { legacyChats, legacyCheckIns, legacyGoals, legacyJournal } from '@/features/profile/legacyAccount';
 import { decideProfileSnapshot } from '@/features/profile/hydration';
 import { composeItems, useUserDataStore } from '@/stores/userDataStore';
 
@@ -82,7 +82,6 @@ describe('legacy account on the user document', () => {
     });
     // Short prototype ids get the same prefix the backend import uses.
     expect(legacyJournal(prototypeDoc)).toMatchObject([{ id: 'legacy_j1', text: 'Noted.' }]);
-    expect(legacyAccount(prototypeDoc)).toMatchObject({ creditsRemaining: 120, creditsPeriodKey: '2026-10', plan: 'standard' });
     const chats = legacyChats(prototypeDoc);
     expect(chats).toHaveLength(1);
     expect(chats[0]?.conversation.title).toBe('Monday');

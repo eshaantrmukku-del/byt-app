@@ -7,8 +7,8 @@
  *   users/{uid}/journal/{entryId}                   JournalEntryDoc       client-writable
  *   users/{uid}/conversations/{cid}                 ConversationDoc       client creates; afterwards client may only rename
  *   users/{uid}/conversations/{cid}/messages/{mid}  MessageDoc            backend-only (see internal/coach-api-contract.md)
- *   users/{uid}/private/account                     AccountDoc            server-only (plan + credits)
- *   users/{uid}/turns/{clientTurnId}                TurnDoc               server-only (credit idempotency)
+ *   users/{uid}/private/account                     AccountDoc            server-only (plan + daily allowance)
+ *   users/{uid}/turns/{clientTurnId}                TurnDoc               server-only (turn idempotency)
  *
  * Legacy prototype docs (schema v1) kept everything as arrays on users/{uid}.
  * Those fields are left untouched; only the profile is carried over.
@@ -141,11 +141,11 @@ export type Plan = 'standard' | 'plus';
 export type AccountDoc = {
   plan: Plan;
   betaTier: boolean;
-  creditsRemaining: number;
-  /** YYYY-MM; credits reset lazily when the period changes. */
-  creditsPeriodKey: string;
-  /** Credits granted at the start of the period. 150 until the server says otherwise. */
-  monthlyAllowance?: number;
+  /** UTC day (YYYY-MM-DD) the counter belongs to; it resets lazily on a new day. */
+  dayKey: string;
+  /** Gemini tokens used today. */
+  tokensUsed: number;
+  dailyTokenLimit: number;
 };
 
 export type TurnStatus = 'pending' | 'completed' | 'failed';
@@ -153,11 +153,13 @@ export type TurnStatus = 'pending' | 'completed' | 'failed';
 /** Server-owned idempotency record for one user turn. */
 export type TurnDoc = {
   status: TurnStatus;
-  creditCharged: boolean;
+  metered: boolean;
+  reserved: number;
   createdAt: ServerTime;
 };
 
-export const MONTHLY_CREDIT_ALLOWANCE = 150;
+/** Shown until the server reports the real limit. Matches the backend default. */
+export const DEFAULT_DAILY_TOKEN_LIMIT = 200_000;
 
 // ---------- App-state shapes (timestamps as epoch ms) ----------
 
@@ -170,7 +172,8 @@ export type CheckIn = Omit<CheckInDoc, 'createdAt' | 'updatedAt'> & Timestamps &
 
 export type JournalEntry = { id: string; date: IsoDate; text: string } & Timestamps;
 
-export type Account = Pick<AccountDoc, 'plan' | 'creditsRemaining' | 'creditsPeriodKey' | 'monthlyAllowance'>;
+/** Today's coaching allowance as the app shows it. */
+export type Account = { plan: Plan; used: number; limit: number; resetsAt: number };
 
 export type Conversation = {
   id: string;

@@ -1,8 +1,34 @@
-import type { Plan } from './contract.js';
+import type { CoachThinking, Plan } from './contract.js';
 
-/** Plus is hidden and not purchasable during the beta; it gets the same allowance for now. */
-export const MONTHLY_ALLOWANCE: Record<Plan, number> = { standard: 150, plus: 150 };
+const envInt = (name: string, fallback: number) => {
+  const n = Number.parseInt(process.env[name] ?? '', 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+/**
+ * Daily AI allowance in Gemini tokens (input + output + thinking + voice), per UTC day.
+ * A typical text turn is roughly 8–12k tokens. Plus is hidden and not purchasable
+ * during the beta; it gets the same allowance for now. Tunable via functions/.env.
+ */
+export const DAILY_TOKEN_LIMIT: Record<Plan, number> = {
+  standard: envInt('BYT_DAILY_TOKENS', 200_000),
+  plus: envInt('BYT_DAILY_TOKENS_PLUS', 200_000),
+};
 export const DEFAULT_PLAN: Plan = 'standard';
+
+/**
+ * Held against the allowance while a metered turn runs, then settled to the real
+ * count. It stops parallel sends from running far past the limit.
+ */
+export const TOKEN_RESERVE = envInt('BYT_TOKEN_RESERVE', 12_000);
+
+/** How hard the reply model thinks. The user picks the level; the default is the app's. */
+export const THINKING = {
+  default: 'standard' as CoachThinking,
+  level: { standard: 'low', deeper: 'medium', deepest: 'high' } as const,
+  /** More thinking takes longer; these are the reply-call budgets. */
+  replyTimeoutMs: { standard: 25_000, deeper: 35_000, deepest: 45_000 } as const,
+};
 
 export const LIMITS = {
   textMaxChars: 4000,

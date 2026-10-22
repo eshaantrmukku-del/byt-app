@@ -1,8 +1,11 @@
 import { LIMITS } from './config.js';
 import {
+  COACH_THINKING,
   VOICE_MIME_TYPES,
+  type CoachThinking,
   type CoachTurnRequest,
   type ConversationMode,
+  type VoiceAudioRequest,
   type VoiceMimeType,
   type VoiceTurnRequest,
 } from './contract.js';
@@ -41,8 +44,15 @@ export function normaliseText(text: string): string {
   return text.replace(/\r\n?/g, '\n').trim();
 }
 
+function thinking(value: unknown): CoachThinking | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (COACH_THINKING.includes(value as CoachThinking)) return value as CoachThinking;
+  throw new CoachError('invalid-request');
+}
+
 function target(raw: Raw) {
   const conversationMode = mode(raw.mode);
+  const level = thinking(raw.thinking);
   const reflectionCheckInId = isoDate(raw.reflectionCheckInId);
   if (conversationMode === 'reflection' && !reflectionCheckInId) throw new CoachError('invalid-request');
   return {
@@ -50,7 +60,18 @@ function target(raw: Raw) {
     conversationId: id(raw.conversationId, 1),
     mode: conversationMode,
     ...(reflectionCheckInId ? { reflectionCheckInId } : {}),
+    ...(level ? { thinking: level } : {}),
   };
+}
+
+/** Parts beyond this are never produced (see voiceParts). */
+export const MAX_AUDIO_PARTS = 6;
+
+export function parseVoiceAudioRequest(data: unknown): VoiceAudioRequest {
+  const raw = asObject(data);
+  const part = raw.part;
+  if (typeof part !== 'number' || !Number.isInteger(part) || part < 1 || part >= MAX_AUDIO_PARTS) throw new CoachError('invalid-request');
+  return { requestId: id(raw.requestId, LIMITS.requestIdMin), part };
 }
 
 export function parseCoachTurnRequest(data: unknown): CoachTurnRequest {

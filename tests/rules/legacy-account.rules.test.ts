@@ -125,6 +125,9 @@ describe('a real prototype account on users/{uid}', () => {
     await assertFails(updateDoc(ref, { creditsRemaining: 9999, updatedAt: serverTimestamp() }));
     await assertFails(updateDoc(ref, { subscriptionPlan: 'plus', updatedAt: serverTimestamp() }));
     await assertFails(setDoc(doc(dbFor(OWNER), `${PATH}/private/account`), { creditsRemaining: 9999 }));
+    // The daily token counter is server-owned too.
+    await assertFails(setDoc(doc(dbFor(OWNER), `${PATH}/private/account`), { tokensUsed: 0, dayKey: '2026-10-22', dailyTokenLimit: 1e9 }));
+    await assertFails(setDoc(doc(dbFor(OWNER), `${PATH}/turns/req12345678`), { status: 'completed', reply: 'x' }));
   });
 
   it('lets the owner keep editing rows the backend imported', async () => {

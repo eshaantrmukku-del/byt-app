@@ -1,6 +1,6 @@
 import { FieldValue, Timestamp, type Firestore } from 'firebase-admin/firestore';
 
-import { DEFAULT_PLAN, LIMITS, MONTHLY_ALLOWANCE } from '../config.js';
+import { DAILY_TOKEN_LIMIT, DEFAULT_PLAN, LIMITS, TOKEN_RESERVE } from '../config.js';
 import {
   userMessageId,
   coachMessageId,
@@ -8,27 +8,42 @@ import {
   type ConversationMode,
   type GoalProgressProposal,
   type Plan,
+  type UsageSnapshot,
 } from '../contract.js';
 import { CoachError } from '../errors.js';
-import { checkRateLimit, nextPeriodStart, periodKey } from './period.js';
+import { checkRateLimit, dayKey, nextDayStart } from './period.js';
 
+/** users/{uid}/private/account. Server-owned; the app only reads it. */
 export type AccountData = {
   plan: Plan;
   betaTier: boolean;
-  creditsRemaining: number;
-  creditsPeriodKey: string;
-  monthlyAllowance: number;
+  /** UTC day the counter belongs to; a new day starts at zero. */
+  dayKey: string;
+  /** Gemini tokens used today, including reservations for turns still running. */
+  tokensUsed: number;
+  dailyTokenLimit: number;
 };
+
+export type Usage = Omit<UsageSnapshot, 'metered'>;
+
+export function usageOf(account: Pick<AccountData, 'tokensUsed' | 'dailyTokenLimit'>, nowMs: number): Usage {
+  return { used: Math.max(0, account.tokensUsed), limit: account.dailyTokenLimit, resetsAt: nextDayStart(nowMs) };
+}
 
 export type TurnStatus = 'pending' | 'completed' | 'failed';
 
 export type TurnRecord = {
   status: TurnStatus;
-  creditCharged: boolean;
+  /** Counts against the daily allowance (user messages and voice turns; not openers). */
+  metered: boolean;
+  /** Tokens currently held for this turn on dayKey's counter. */
+  reserved: number;
+  /** Tokens the turn actually used, once completed. */
+  tokens?: number;
   channel: Channel;
   conversationId: string;
   inputHash: string;
-  periodKey: string;
+  dayKey: string;
   attempt: number;
   leaseUntilMs: number;
   reply?: string;
@@ -50,8 +65,8 @@ export type BeginTurnParams = {
   requestId: string;
   conversationId: string;
   channel: Channel;
-  /** False for session openers: the coach speaks first and nothing is charged. */
-  charge: boolean;
+  /** False for session openers: the coach speaks first and nothing is counted. */
+  metered: boolean;
   /** Hash of the request payload; the same requestId must always carry the same input. */
   inputHash: string;
   /** Text turns write the user message in the charge transaction; voice writes it after STT. */
@@ -61,16 +76,14 @@ export type BeginTurnParams = {
 };
 
 export type BeginTurnResult =
-  | { kind: 'replay'; turn: TurnRecord; creditsRemaining: number; periodKey: string }
+  | { kind: 'replay'; turn: TurnRecord; usage: Usage }
   | {
       kind: 'run';
       attempt: number;
-      creditsRemaining: number;
-      periodKey: string;
+      usage: Usage;
       conversation: ConversationState;
       tookOver: boolean;
-      /** True only when this call decremented the balance. */
-      charged: boolean;
+      metered: boolean;
       userCreatedAtMs?: number;
     };
 
@@ -86,34 +99,27 @@ export const refs = (db: Firestore, uid: string) => {
   };
 };
 
-/** Creates the account on first use and applies the lazy monthly reset. */
+/**
+ * Creates the account on first use and applies the lazy daily reset. Accounts from
+ * the monthly-credit era just start counting tokens; their old fields are ignored.
+ */
 export function resolveAccount(existing: Partial<AccountData> | undefined, nowMs: number): { account: AccountData; changed: boolean } {
-  const key = periodKey(nowMs);
+  const key = dayKey(nowMs);
   const plan: Plan = existing?.plan === 'plus' ? 'plus' : DEFAULT_PLAN;
-  const allowance = MONTHLY_ALLOWANCE[plan];
-  if (!existing || typeof existing.creditsRemaining !== 'number' || existing.creditsPeriodKey !== key) {
+  const limit = DAILY_TOKEN_LIMIT[plan];
+  if (!existing || typeof existing.tokensUsed !== 'number' || existing.dayKey !== key) {
     return {
-      account: { plan, betaTier: existing?.betaTier ?? true, creditsRemaining: allowance, creditsPeriodKey: key, monthlyAllowance: allowance },
+      account: { plan, betaTier: existing?.betaTier ?? true, dayKey: key, tokensUsed: 0, dailyTokenLimit: limit },
       changed: true,
     };
   }
-  const account: AccountData = {
-    plan,
-    betaTier: existing.betaTier ?? true,
-    creditsRemaining: existing.creditsRemaining,
-    creditsPeriodKey: key,
-    monthlyAllowance: allowance,
-  };
-  return { account, changed: existing.monthlyAllowance !== allowance };
+  const account: AccountData = { plan, betaTier: existing.betaTier ?? true, dayKey: key, tokensUsed: existing.tokensUsed, dailyTokenLimit: limit };
+  return { account, changed: existing.dailyTokenLimit !== limit || existing.plan !== plan };
 }
 
 export function preview(text: string): string {
   const oneLine = text.replace(/\s+/g, ' ').trim();
   return oneLine.length <= LIMITS.previewChars ? oneLine : `${oneLine.slice(0, LIMITS.previewChars - 1).trimEnd()}…`;
-}
-
-function resetsAtIso(nowMs: number): string {
-  return new Date(nextPeriodStart(nowMs)).toISOString();
 }
 
 export async function getOrCreateAccount(db: Firestore, uid: string, nowMs: number): Promise<AccountData> {
@@ -127,9 +133,9 @@ export async function getOrCreateAccount(db: Firestore, uid: string, nowMs: numb
 }
 
 /**
- * Atomically: idempotency check, monthly reset, rate limit, credit deduction and the user
- * message. The conversation is created by the app; a missing one is rejected before any
- * charge. Nothing is charged when this throws.
+ * Atomically: idempotency check, daily reset, rate limit, the allowance check plus a
+ * token reservation, and the user message. The conversation is created by the app; a
+ * missing one is rejected before anything is counted. Nothing is counted when this throws.
  */
 export async function beginTurn(db: Firestore, p: BeginTurnParams): Promise<BeginTurnResult> {
   const r = refs(db, p.uid);
@@ -155,29 +161,29 @@ export async function beginTurn(db: Firestore, p: BeginTurnParams): Promise<Begi
       }
       if (existing.status === 'completed') {
         if (accountChanged) tx.set(r.account, { ...account, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-        return { kind: 'replay', turn: existing, creditsRemaining: account.creditsRemaining, periodKey: account.creditsPeriodKey } as const;
+        return { kind: 'replay', turn: existing, usage: usageOf(account, p.nowMs) } as const;
       }
       if (existing.status === 'pending' && existing.leaseUntilMs > p.nowMs) {
         throw new CoachError('in-progress', { retryAfterSeconds: 2 });
       }
     }
 
-    // An expired pending turn that was already charged is taken over without charging again.
-    const takeOver = Boolean(existing?.status === 'pending' && existing.creditCharged && existing.periodKey === account.creditsPeriodKey);
-    const chargeNow = p.charge && !takeOver;
-    let creditsRemaining = account.creditsRemaining;
+    // An expired pending turn that still holds a reservation is taken over without reserving again.
+    const takeOver = Boolean(existing?.status === 'pending' && (existing.reserved ?? 0) > 0 && existing.dayKey === account.dayKey);
+    const reserveNow = p.metered && !takeOver;
+    let tokensUsed = account.tokensUsed;
 
     const recent = ((rateSnap!.data()?.recent as number[] | undefined) ?? []).filter((t) => typeof t === 'number');
     const rate = checkRateLimit(recent, p.nowMs);
     if (!takeOver && !rate.ok) {
       throw new CoachError('rate-limited', { retryAfterSeconds: Math.max(1, Math.ceil(rate.retryAfterMs / 1000)) });
     }
-    if (chargeNow && account.creditsRemaining <= 0) {
-      throw new CoachError('no-credits', { remaining: 0, resetsAt: resetsAtIso(p.nowMs) });
+    if (reserveNow && account.tokensUsed >= account.dailyTokenLimit) {
+      throw new CoachError('no-credits', { resetsAt: nextDayStart(p.nowMs) });
     }
-    if (chargeNow) {
-      creditsRemaining = account.creditsRemaining - 1;
-      tx.set(r.account, { ...account, creditsRemaining, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    if (reserveNow) {
+      tokensUsed = account.tokensUsed + TOKEN_RESERVE;
+      tx.set(r.account, { ...account, tokensUsed, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     } else if (accountChanged) {
       tx.set(r.account, { ...account, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     }
@@ -187,11 +193,12 @@ export async function beginTurn(db: Firestore, p: BeginTurnParams): Promise<Begi
     const userCreatedAtMs = p.userText !== undefined ? p.nowMs : existing?.userCreatedAtMs;
     const turn: TurnRecord = {
       status: 'pending',
-      creditCharged: chargeNow || takeOver,
+      metered: p.metered,
+      reserved: reserveNow ? TOKEN_RESERVE : takeOver ? existing!.reserved : 0,
       channel: p.channel,
       conversationId: p.conversationId,
       inputHash: p.inputHash,
-      periodKey: account.creditsPeriodKey,
+      dayKey: account.dayKey,
       attempt,
       leaseUntilMs: p.nowMs + LIMITS.turnLeaseMs,
       ...(userCreatedAtMs !== undefined ? { userCreatedAtMs } : {}),
@@ -229,11 +236,10 @@ export async function beginTurn(db: Firestore, p: BeginTurnParams): Promise<Begi
     return {
       kind: 'run',
       attempt,
-      creditsRemaining,
-      periodKey: account.creditsPeriodKey,
+      usage: usageOf({ ...account, tokensUsed }, p.nowMs),
       conversation,
       tookOver: takeOver,
-      charged: chargeNow,
+      metered: p.metered,
       ...(userCreatedAtMs !== undefined ? { userCreatedAtMs } : {}),
     } as const;
   });
@@ -274,30 +280,46 @@ export type CompleteTurnParams = {
   channel: Channel;
   reply: string;
   nowMs: number;
+  /** Tokens the turn used (analysis, reply, summary, speech-to-text). */
+  tokens: number;
   proposal?: GoalProgressProposal;
   summary?: { text: string; messageCount: number };
 };
 
-/** Writes the coach message and marks the turn completed. The first writer wins. */
+/**
+ * Writes the coach message, marks the turn completed and settles its reservation to
+ * the real token count. The first writer wins.
+ */
 export async function completeTurn(
   db: Firestore,
   p: CompleteTurnParams,
-): Promise<{ turn: TurnRecord; creditsRemaining: number; periodKey: string }> {
+): Promise<{ turn: TurnRecord; usage: Usage }> {
   const r = refs(db, p.uid);
   const turnRef = r.turn(p.requestId);
   const convRef = r.conversation(p.conversationId);
   return db.runTransaction(async (tx) => {
     const [turnSnap, accountSnap] = await Promise.all([tx.get(turnRef), tx.get(r.account)]);
-    const creditsRemaining = (accountSnap.data()?.creditsRemaining as number | undefined) ?? 0;
-    const storedPeriod = (accountSnap.data()?.creditsPeriodKey as string | undefined) ?? periodKey(p.nowMs);
+    const { account } = resolveAccount(accountSnap.data() as Partial<AccountData> | undefined, p.nowMs);
     const turn = turnSnap.data() as TurnRecord | undefined;
     if (!turn) throw new CoachError('internal');
-    if (turn.status === 'completed') return { turn, creditsRemaining, periodKey: storedPeriod };
+    if (turn.status === 'completed') return { turn, usage: usageOf(account, p.nowMs) };
+
+    // Settle on the counter the reservation was made against. Across midnight the old
+    // day's counter is gone, so the turn counts towards the new day in full.
+    const tokens = turn.metered ? Math.max(0, Math.round(p.tokens)) : 0;
+    const storedDay = accountSnap.data()?.dayKey as string | undefined;
+    const delta = storedDay === turn.dayKey && account.dayKey === turn.dayKey ? tokens - (turn.reserved ?? 0) : tokens;
+    const tokensUsed = Math.max(0, account.tokensUsed + delta);
+    if (delta !== 0 || storedDay !== account.dayKey) {
+      tx.set(r.account, { ...account, tokensUsed, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
 
     const replyCreatedAtMs = Math.max(p.nowMs, (turn.userCreatedAtMs ?? 0) + 1);
     const completed: TurnRecord = {
       ...turn,
       status: 'completed',
+      reserved: 0,
+      tokens,
       reply: p.reply,
       proposal: p.proposal ?? null,
       leaseUntilMs: 0,
@@ -318,24 +340,39 @@ export async function completeTurn(
       lastMessagePreview: preview(p.reply),
       ...(p.summary ? { summary: p.summary.text, summaryMessageCount: p.summary.messageCount } : {}),
     }, { merge: true });
-    return { turn: completed, creditsRemaining, periodKey: storedPeriod };
+    return { turn: completed, usage: usageOf({ ...account, tokensUsed }, p.nowMs) };
   });
 }
 
-/** Marks a running turn failed and refunds its credit (only once, only for the current attempt). */
-export async function failTurn(db: Firestore, p: { uid: string; requestId: string; attempt: number }): Promise<number> {
+/** Marks a running turn failed and releases its reservation (only once, only for the current attempt). */
+export async function failTurn(db: Firestore, p: { uid: string; requestId: string; attempt: number; nowMs: number }): Promise<Usage> {
   const r = refs(db, p.uid);
   const turnRef = r.turn(p.requestId);
   return db.runTransaction(async (tx) => {
     const [turnSnap, accountSnap] = await Promise.all([tx.get(turnRef), tx.get(r.account)]);
     const turn = turnSnap.data() as TurnRecord | undefined;
-    let credits = (accountSnap.data()?.creditsRemaining as number | undefined) ?? 0;
-    if (!turn || turn.status !== 'pending' || turn.attempt !== p.attempt) return credits;
-    if (turn.creditCharged && accountSnap.data()?.creditsPeriodKey === turn.periodKey) {
-      credits += 1;
-      tx.update(r.account, { creditsRemaining: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp() });
+    const { account } = resolveAccount(accountSnap.data() as Partial<AccountData> | undefined, p.nowMs);
+    if (!turn || turn.status !== 'pending' || turn.attempt !== p.attempt) return usageOf(account, p.nowMs);
+    let tokensUsed = account.tokensUsed;
+    if ((turn.reserved ?? 0) > 0 && accountSnap.data()?.dayKey === turn.dayKey && account.dayKey === turn.dayKey) {
+      tokensUsed = Math.max(0, tokensUsed - turn.reserved);
+      tx.set(r.account, { ...account, tokensUsed, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     }
-    tx.update(turnRef, { status: 'failed', creditCharged: false, leaseUntilMs: 0, updatedAt: FieldValue.serverTimestamp() });
-    return credits;
+    tx.update(turnRef, { status: 'failed', reserved: 0, leaseUntilMs: 0, updatedAt: FieldValue.serverTimestamp() });
+    return usageOf({ ...account, tokensUsed }, p.nowMs);
+  });
+}
+
+/**
+ * Adds tokens spent after a turn completed (the later parts of a spoken reply) to the
+ * day they were spent on.
+ */
+export async function addTokens(db: Firestore, uid: string, tokens: number, nowMs: number): Promise<void> {
+  if (!(tokens > 0)) return;
+  const r = refs(db, uid);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(r.account);
+    const { account } = resolveAccount(snap.data() as Partial<AccountData> | undefined, nowMs);
+    tx.set(r.account, { ...account, tokensUsed: account.tokensUsed + Math.round(tokens), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   });
 }

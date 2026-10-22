@@ -15,15 +15,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { buildTimeline, currentPeriodKey, isTurnSynced, nextResetLabel, shouldAutoTitle, sortConversations, type TimelineItem } from '@/features/chat/chat';
+import { buildTimeline, isTurnSynced, shouldAutoTitle, sortConversations, type TimelineItem } from '@/features/chat/chat';
+import { currentAccount, isUsedUp, percentLeft, resetLabel } from '@/features/usage/usage';
 import { COACH_TEXT_LIMIT, type GoalProgressProposal } from '@/services/coach/types';
 import { acceptGoalProposal, discardMessage, requestOpener, retryMessage, sendMessage } from '@/services/coach/turns';
 import { autoTitleConversation, createConversation, renameConversation, watchMessages } from '@/services/conversationsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore, usePendingTurnsStore } from '@/stores/chatStore';
-import { useCreditsStore } from '@/stores/creditsStore';
+import { useUsageStore } from '@/stores/usageStore';
 import { useUserDataStore } from '@/stores/userDataStore';
-import { MONTHLY_CREDIT_ALLOWANCE } from '@/types/models';
 import { theme } from '@/ui';
 import { RenameChatModal } from '@/ui/RenameChatModal';
 
@@ -33,7 +33,7 @@ export default function AiCoachScreen() {
   const conversations = useUserDataStore((s) => s.conversations);
   const activeId = useChatStore((s) => s.activeConversationId);
   const setActive = useChatStore((s) => s.setActive);
-  const account = useCreditsStore((s) => s.account);
+  const account = currentAccount(useUsageStore((s) => s.account));
 
   // Which conversation to show: an explicit one, the last one opened, the most recent, or a new one.
   useEffect(() => {
@@ -87,9 +87,8 @@ export default function AiCoachScreen() {
   const sendLock = useRef(false);
   const listRef = useRef<FlatList<TimelineItem>>(null);
 
-  const creditsRemaining = account?.creditsRemaining ?? MONTHLY_CREDIT_ALLOWANCE;
-  const outOfCredits = noCredits || (account !== null && account.creditsRemaining <= 0);
-  const resetLabel = nextResetLabel(account?.creditsPeriodKey || currentPeriodKey());
+  const outOfCredits = noCredits || isUsedUp(account);
+  const resets = resetLabel(account.resetsAt);
 
   const handleSend = async () => {
     const text = inputText.trim();
@@ -218,7 +217,7 @@ export default function AiCoachScreen() {
             {conversation ? <Pencil size={14} color={theme.primary} style={styles.pencil} /> : null}
           </View>
           <Text style={styles.headerSubtitle}>
-            {creditsRemaining}/{MONTHLY_CREDIT_ALLOWANCE} credits · resets {resetLabel}
+            {percentLeft(account)}% of today&apos;s coaching left · resets {resets}
           </Text>
         </TouchableOpacity>
         <View style={styles.headerRight}>
@@ -239,10 +238,10 @@ export default function AiCoachScreen() {
 
       {outOfCredits ? (
         <View style={styles.creditBanner}>
-          <Text style={styles.creditBannerText}>You&apos;ve run out of credits for this month</Text>
-          <Text style={styles.creditBannerHint}>They reset on {resetLabel}.</Text>
+          <Text style={styles.creditBannerText}>You&apos;ve used today&apos;s coaching allowance</Text>
+          <Text style={styles.creditBannerHint}>It resets {resets}. Your conversation is saved, so you can pick up where you left off.</Text>
           <TouchableOpacity style={styles.creditBannerBtn} onPress={() => router.push('/settings')} accessibilityRole="button">
-            <Text style={styles.creditBannerBtnText}>Manage subscription</Text>
+            <Text style={styles.creditBannerBtnText}>View allowance</Text>
           </TouchableOpacity>
         </View>
       ) : null}

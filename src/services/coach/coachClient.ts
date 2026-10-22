@@ -2,26 +2,33 @@ import * as Crypto from 'expo-crypto';
 import { httpsCallable } from 'firebase/functions';
 
 import { requireFirebase } from '@/lib/firebase';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 
 import { CoachError, toCoachError } from './errors';
 import {
   COACH_TEXT_LIMIT,
+  COACH_THINKING,
   REQUEST_ID_PATTERN,
   VOICE_MAX_BASE64_LENGTH,
   VOICE_MAX_DURATION_MS,
   type AccountSnapshot,
   type CoachMessagePayload,
+  type CoachThinking,
   type CoachTurnRequest,
   type CoachTurnResponse,
   type GoalProgressProposal,
+  type ReplyAudio,
+  type UsageSnapshot,
   type VoiceAudioMimeType,
   type VoiceTurnRequest,
   type VoiceTurnResponse,
 } from './types';
 
-const TEXT_TIMEOUT_MS = 60_000;
-const VOICE_TIMEOUT_MS = 90_000;
+// Matches the callables' limits (deepest thinking can take most of a minute).
+const TEXT_TIMEOUT_MS = 120_000;
+const VOICE_TIMEOUT_MS = 125_000;
 const ACCOUNT_TIMEOUT_MS = 20_000;
+const AUDIO_PART_TIMEOUT_MS = 30_000;
 const IN_PROGRESS_RETRIES = 3;
 const IN_PROGRESS_DELAY_MS = 2_000;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -61,11 +68,22 @@ function readProposal(value: unknown): GoalProgressProposal | undefined {
   };
 }
 
+function readUsage(value: unknown): Omit<UsageSnapshot, 'metered'> | null {
+  const u = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>;
+  if (typeof u.used !== 'number' || typeof u.limit !== 'number' || !(u.limit > 0)) return null;
+  return { used: Math.max(0, u.used), limit: u.limit, resetsAt: typeof u.resetsAt === 'number' ? u.resetsAt : 0 };
+}
+
+function readAudio(value: unknown): ReplyAudio | null {
+  const a = (typeof value === 'object' && value !== null ? value : null) as Record<string, unknown> | null;
+  return a && typeof a.base64 === 'string' && a.base64 && a.mimeType === 'audio/wav' ? { base64: a.base64, mimeType: 'audio/wav' } : null;
+}
+
 function readTurn(data: unknown): CoachTurnResponse {
   const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
   const reply = readMessage(d.reply);
-  const credits = (typeof d.credits === 'object' && d.credits !== null ? d.credits : {}) as Record<string, unknown>;
-  if (!reply || typeof credits.remaining !== 'number') throw new CoachError('unknown');
+  const usage = readUsage(d.usage);
+  if (!reply || !usage) throw new CoachError('unknown');
   const userMessage = d.userMessage == null ? null : readMessage(d.userMessage);
   if (d.userMessage != null && !userMessage) throw new CoachError('unknown');
   const proposal = readProposal(d.proposal);
@@ -75,11 +93,7 @@ function readTurn(data: unknown): CoachTurnResponse {
     replayed: d.replayed === true,
     userMessage,
     reply,
-    credits: {
-      remaining: credits.remaining,
-      periodKey: typeof credits.periodKey === 'string' ? credits.periodKey : '',
-      charged: credits.charged === 1 ? 1 : 0,
-    },
+    usage: { ...usage, metered: (d.usage as Record<string, unknown>).metered === true },
     ...(proposal ? { proposal } : {}),
   };
 }
@@ -108,9 +122,17 @@ function assertTarget(request: { requestId: string; conversationId: string; mode
   if (request.reflectionCheckInId && !ISO_DATE.test(request.reflectionCheckInId)) throw new CoachError('invalid-request');
 }
 
+/** The thinking level chosen in Settings, unless the caller set one. */
+function withThinking<T extends { thinking?: CoachThinking }>(request: T): T {
+  const level = request.thinking ?? usePreferencesStore.getState().coachThinking;
+  return { ...request, thinking: COACH_THINKING.includes(level) ? level : 'standard' };
+}
+
 export type CoachClient = {
   coachTurn: (request: CoachTurnRequest) => Promise<CoachTurnResponse>;
   voiceTurn: (request: VoiceTurnRequest) => Promise<VoiceTurnResponse>;
+  /** A later part of a finished voice turn's spoken reply. Null if it couldn't be made. */
+  voiceAudio: (requestId: string, part: number) => Promise<ReplyAudio | null>;
   getAccount: () => Promise<AccountSnapshot>;
   deleteAccount: () => Promise<void>;
 };
@@ -119,12 +141,12 @@ export const coachClient: CoachClient = {
   coachTurn: async (request) => {
     assertTarget(request);
     if (request.kind === 'opener') {
-      return readTurn(await invoke('coachTurn', { ...request, text: undefined }, TEXT_TIMEOUT_MS, true));
+      return readTurn(await invoke('coachTurn', withThinking({ ...request, text: undefined }), TEXT_TIMEOUT_MS, true));
     }
     const text = request.text.trim();
     if (!text) throw new CoachError('invalid-request');
     if (text.length > COACH_TEXT_LIMIT) throw new CoachError('text-too-long');
-    return readTurn(await invoke('coachTurn', { ...request, text }, TEXT_TIMEOUT_MS, true));
+    return readTurn(await invoke('coachTurn', withThinking({ ...request, text }), TEXT_TIMEOUT_MS, true));
   },
   voiceTurn: async (request) => {
     assertTarget(request);
@@ -132,30 +154,26 @@ export const coachClient: CoachClient = {
     if (!AUDIO_MIME.includes(audio.mimeType) || audio.durationMs <= 0) throw new CoachError('invalid-request');
     if (audio.durationMs > VOICE_MAX_DURATION_MS) throw new CoachError('audio-too-long');
     if (!audio.base64 || audio.base64.length > VOICE_MAX_BASE64_LENGTH) throw new CoachError('audio-too-long');
-    const data = await invoke<VoiceTurnRequest, unknown>('voiceTurn', request, VOICE_TIMEOUT_MS, true);
+    const data = await invoke<VoiceTurnRequest, unknown>('voiceTurn', withThinking(request), VOICE_TIMEOUT_MS, true);
     const turn = readTurn(data);
     const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
-    const audioReply = (typeof d.replyAudio === 'object' && d.replyAudio !== null ? d.replyAudio : null) as Record<string, unknown> | null;
-    const replyAudio =
-      audioReply && typeof audioReply.base64 === 'string' && audioReply.mimeType === 'audio/wav'
-        ? { base64: audioReply.base64, mimeType: 'audio/wav' as const }
-        : null;
-    return { ...turn, transcript: typeof d.transcript === 'string' ? d.transcript : '', replyAudio };
+    const replyAudio = readAudio(d.replyAudio);
+    const audioParts = replyAudio && typeof d.audioParts === 'number' && Number.isInteger(d.audioParts) ? Math.max(1, Math.min(6, d.audioParts)) : 0;
+    return { ...turn, transcript: typeof d.transcript === 'string' ? d.transcript : '', replyAudio, audioParts };
+  },
+  voiceAudio: async (requestId, part) => {
+    requireRequestId(requestId);
+    const data = await invoke<{ requestId: string; part: number }, unknown>('voiceAudio', { requestId, part }, AUDIO_PART_TIMEOUT_MS, false);
+    return readAudio((data as Record<string, unknown> | null)?.replyAudio);
   },
   getAccount: async () => {
     // The device zone puts prototype check-ins on the same calendar day the app shows.
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const data = await invoke<{ timeZone?: string }, unknown>('getAccount', timeZone ? { timeZone } : {}, ACCOUNT_TIMEOUT_MS, false);
     const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
-    if (typeof d.creditsRemaining !== 'number' || typeof d.creditsPeriodKey !== 'string') throw new CoachError('unknown');
-    return {
-      plan: d.plan === 'plus' ? 'plus' : 'standard',
-      creditsRemaining: d.creditsRemaining,
-      monthlyAllowance: typeof d.monthlyAllowance === 'number' ? d.monthlyAllowance : 150,
-      creditsPeriodKey: d.creditsPeriodKey,
-      resetsAt: typeof d.resetsAt === 'number' ? d.resetsAt : 0,
-      legacyImported: d.legacyImported === true,
-    };
+    const usage = readUsage(d.usage);
+    if (!usage) throw new CoachError('unknown');
+    return { plan: d.plan === 'plus' ? 'plus' : 'standard', usage, legacyImported: d.legacyImported === true };
   },
   deleteAccount: async () => {
     const data = await invoke<{ confirm: 'DELETE' }, unknown>('deleteAccount', { confirm: 'DELETE' }, ACCOUNT_TIMEOUT_MS, false);
