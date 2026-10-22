@@ -217,7 +217,7 @@ export default function AiCoachScreen() {
             {conversation ? <Pencil size={14} color={theme.primary} style={styles.pencil} /> : null}
           </View>
           <Text style={styles.headerSubtitle}>
-            {percentLeft(account)}% of today&apos;s coaching left · resets {resets}
+            {percentLeft(account)}% of today&apos;s coaching left
           </Text>
         </TouchableOpacity>
         <View style={styles.headerRight}>

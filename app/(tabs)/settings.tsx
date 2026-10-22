@@ -195,7 +195,7 @@ export default function SettingsScreen() {
               <Text style={styles.creditsValue}>{left}% left</Text>
             </View>
             <View style={styles.progressBg} accessibilityLabel={`${left} percent of today's coaching left`}>
-              <View style={[styles.progressFill, { width: `${100 - left}%` }]} />
+              <View style={[styles.progressFill, { width: `${left}%` }]} />
             </View>
             <Text style={styles.progressInfo}>Resets {resetLabel(account.resetsAt)}</Text>
             <Text style={styles.creditHint}>

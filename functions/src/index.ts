@@ -34,7 +34,7 @@ function llm(): LlmClient {
 }
 
 function voice(): VoiceProvider {
-  if (MOCK) return (geminiVoice ??= new MockVoice());
+  if (MOCK) return (geminiVoice ??= new MockVoice({ playable: true }));
   const key = GEMINI_API_KEY.value();
   if (!key) throw new CoachError('not-configured');
   return (geminiVoice ??= new GeminiVoice(key));

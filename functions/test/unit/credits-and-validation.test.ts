@@ -6,6 +6,7 @@ import { DAILY_TOKEN_LIMIT } from '../../src/config.js';
 import { checkRateLimit, dayKey, nextDayStart } from '../../src/credits/period.js';
 import { CoachError, toHttpsError } from '../../src/errors.js';
 import { MAX_AUDIO_PARTS, parseCoachTurnRequest, parseVoiceAudioRequest, parseVoiceTurnRequest } from '../../src/validation.js';
+import { MOCK_SPOKEN_TRANSCRIPT, MockVoice } from '../../src/voice/mock.js';
 import { voiceParts } from '../../src/voice/parts.js';
 
 const OCT = Date.UTC(2026, 9, 4, 12);
@@ -175,5 +176,18 @@ describe('error mapping', () => {
     const error = toHttpsError(new Error('GEMINI key AIza rejected at https://generativelanguage'));
     expect(error.code).toBe('internal');
     expect(error.message).not.toMatch(/gemini|AIza|generativelanguage/i);
+  });
+});
+
+describe('playable mock voice (phone testing against the emulator)', () => {
+  it('gives a real recording a readable transcript and replies with real WAV audio', async () => {
+    const voice = new MockVoice({ playable: true });
+    const m4a = Buffer.concat([Buffer.from([0, 0, 0, 0x20]), Buffer.from('ftypM4A '), Buffer.alloc(64, 0x9c)]);
+    expect((await voice.transcribe(m4a)).text).toBe(MOCK_SPOKEN_TRANSCRIPT);
+    expect((await voice.transcribe(Buffer.from('I feel stuck'))).text).toBe('I feel stuck');
+    const speech = await voice.synthesize('What do you notice?');
+    expect(speech.data.subarray(0, 4).toString()).toBe('RIFF');
+    expect(speech.data.subarray(8, 12).toString()).toBe('WAVE');
+    expect(speech.data.readUInt32LE(40)).toBe(speech.data.length - 44);
   });
 });

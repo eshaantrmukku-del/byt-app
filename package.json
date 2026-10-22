@@ -5,7 +5,8 @@
   "scripts": {
     "start": "bash scripts/start-expo.sh",
     "start:lan": "bash scripts/start-expo.sh --go --lan",
-    "start:tunnel": "bash scripts/start-expo.sh --go --tunnel",
+    "start:tunnel": "bash scripts/start-tunnel.sh",
+    "start:test": "bash scripts/start-test.sh",
     "qr": "node scripts/expo-qr.cjs",
     "android": "expo run:android",
     "web": "bash scripts/start-expo.sh --web",
@@ -15,6 +16,7 @@
     "test:rules": "bash scripts/test-rules.sh",
     "check:env": "node scripts/check-env.cjs",
     "verify": "npm run check:env && npm run typecheck && npm run lint && npm test",
+    "go-live": "bash scripts/go-live.sh",
     "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes --project ascend-9d17e",
     "prebuild:android": "expo prebuild --platform android --no-install",
     "build:apk:local": "cd android && ./gradlew assembleRelease",

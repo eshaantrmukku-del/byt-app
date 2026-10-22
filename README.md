@@ -31,6 +31,7 @@ npm install
 cp .env.example .env        # fill in Firebase client config
 npm run start:lan           # Expo Go on the same Wi-Fi
 npm run start:tunnel        # Expo Go from any network
+npm run start:test          # whole app against local emulators + offline coach (no billed API)
 npm run qr -- qr.png        # QR for the running dev server
 ```
 
@@ -43,8 +44,13 @@ npm run test:rules          # Firestore rules in the emulator (needs Java 21+)
 
 ## Deploy (functions first, then rules)
 
+`npm run go-live` does all of this in order once the project is on Blaze: it stores the
+Gemini key from `~/byt-secrets-backup` as a Functions secret without printing it, deploys
+functions, waits while you open the app once, deploys rules, then runs the live eval.
+
 ```bash
 npx firebase login
+npx firebase functions:secrets:set GEMINI_API_KEY --project ascend-9d17e
 npx firebase deploy --only functions --project ascend-9d17e
 npm run deploy:rules        # firestore.rules + indexes → ascend-9d17e
 ```
