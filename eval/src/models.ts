@@ -52,13 +52,13 @@ export const DEFAULTS = {
 } as const;
 
 /**
- * Voice, for a finished recording (the app does not stream):
- * Deepgram Nova-3 pre-recorded STT (`/v1/listen?model=nova-3`) and Aura-2 TTS
- * (`/v1/speak?model=aura-2-thalia-en`). Flux is streaming-only, so it is the
- * wrong model for this callable.
+ * Voice, for a finished recording (the app does not stream), on the same Gemini
+ * key as the coach. Chosen October 2026 on cost and a live round-trip test:
+ * Transcribe was word-perfect in about 1 s; Flash Lite TTS took about 2 s for an
+ * 8 s reply, about 1 s faster than Flash TTS for the same audio.
  */
 export const VOICE_CHOICE = {
-  stt: 'nova-3',
-  tts: 'aura-2-thalia-en',
-  why: 'The app sends a completed clip. Nova-3 is Deepgram’s best pre-recorded model; Aura-2 is the REST TTS voice. Flux is for live streaming agents.',
+  stt: 'gemini-3.5-transcribe',
+  tts: 'gemini-3.8-flash-lite-tts (voice Sulafat)',
+  why: 'One provider and one key for coach and voice. Transcribe is about $0.005 per minute of audio; TTS is billed as Gemini audio output tokens.',
 } as const;

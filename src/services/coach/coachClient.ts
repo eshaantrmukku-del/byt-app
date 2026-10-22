@@ -137,8 +137,8 @@ export const coachClient: CoachClient = {
     const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
     const audioReply = (typeof d.replyAudio === 'object' && d.replyAudio !== null ? d.replyAudio : null) as Record<string, unknown> | null;
     const replyAudio =
-      audioReply && typeof audioReply.base64 === 'string' && audioReply.mimeType === 'audio/mpeg'
-        ? { base64: audioReply.base64, mimeType: 'audio/mpeg' as const }
+      audioReply && typeof audioReply.base64 === 'string' && audioReply.mimeType === 'audio/wav'
+        ? { base64: audioReply.base64, mimeType: 'audio/wav' as const }
         : null;
     return { ...turn, transcript: typeof d.transcript === 'string' ? d.transcript : '', replyAudio };
   },

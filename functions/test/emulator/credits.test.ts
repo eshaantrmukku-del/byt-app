@@ -6,7 +6,7 @@ import { MONTHLY_ALLOWANCE } from '../../src/config.js';
 import { CoachError } from '../../src/errors.js';
 import { handleCoachTurn, handleVoiceTurn, type TurnDeps } from '../../src/turn/handlers.js';
 import { MockLlm } from '../../src/llm/mock.js';
-import { MockVoice } from '../../src/voice/deepgram.js';
+import { MockVoice } from '../../src/voice/mock.js';
 
 /**
  * These tests talk to the Firestore emulator (FIRESTORE_EMULATOR_HOST), never production.
@@ -224,7 +224,7 @@ describe('voice', () => {
     });
     expect(result.transcript).toContain('putting off');
     expect(result.userMessage?.text).toContain('putting off');
-    expect(result.replyAudio?.mimeType).toBe('audio/mpeg');
+    expect(result.replyAudio?.mimeType).toBe('audio/wav');
     expect(result.credits.charged).toBe(1);
     expect(result.credits.remaining).toBe(149);
   });

@@ -11,20 +11,20 @@ import { GeminiClient } from './llm/gemini.js';
 import { MockLlm } from './llm/mock.js';
 import type { LlmClient } from './llm/types.js';
 import { handleCoachTurn, handleGetAccount, handleVoiceTurn, type TurnDeps } from './turn/handlers.js';
-import { DeepgramVoice, MockVoice } from './voice/deepgram.js';
+import { GeminiVoice } from './voice/gemini.js';
+import { MockVoice } from './voice/mock.js';
 import type { VoiceProvider } from './voice/types.js';
 
 initializeApp();
 const db = getFirestore();
 
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
-const DEEPGRAM_API_KEY = defineSecret('DEEPGRAM_API_KEY');
 
 /** Offline providers are only ever allowed inside the local emulator. */
 const MOCK = process.env.FUNCTIONS_EMULATOR === 'true' && process.env.BYT_LLM_MODE === 'mock';
 
 let gemini: LlmClient | undefined;
-let deepgram: VoiceProvider | undefined;
+let geminiVoice: VoiceProvider | undefined;
 
 function llm(): LlmClient {
   if (MOCK) return (gemini ??= new MockLlm());
@@ -34,10 +34,10 @@ function llm(): LlmClient {
 }
 
 function voice(): VoiceProvider {
-  if (MOCK) return (deepgram ??= new MockVoice());
-  const key = DEEPGRAM_API_KEY.value();
+  if (MOCK) return (geminiVoice ??= new MockVoice());
+  const key = GEMINI_API_KEY.value();
   if (!key) throw new CoachError('not-configured');
-  return (deepgram ??= new DeepgramVoice(key));
+  return (geminiVoice ??= new GeminiVoice(key));
 }
 
 const deps: TurnDeps = {
@@ -74,7 +74,7 @@ export const coachTurn = onCall(
 );
 
 export const voiceTurn = onCall(
-  { ...base, secrets: [GEMINI_API_KEY, DEEPGRAM_API_KEY], timeoutSeconds: 90, memory: '1GiB' },
+  { ...base, secrets: [GEMINI_API_KEY], timeoutSeconds: 90, memory: '1GiB' },
   wrap((req) => handleVoiceTurn(deps, { uid: req.auth?.uid }, req.data)),
 );
 

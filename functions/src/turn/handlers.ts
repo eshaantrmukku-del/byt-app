@@ -197,7 +197,7 @@ async function speak(deps: TurnDeps, uid: string, requestId: string, text: strin
   if (!wanted) return { replyAudio: null } as const;
   try {
     const audio = await deps.voice().synthesize(text);
-    return { replyAudio: { base64: audio.toString('base64'), mimeType: 'audio/mpeg' as const } };
+    return { replyAudio: { base64: audio.data.toString('base64'), mimeType: audio.mimeType } };
   } catch {
     // The reply is already delivered as text; losing the audio isn't worth failing the turn.
     deps.log('tts_failed', { uid, requestId });

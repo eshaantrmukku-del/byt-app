@@ -37,9 +37,12 @@ export const MODELS = {
   summary: process.env.BYT_SUMMARY_MODEL || 'gemini-3.5-flash-lite',
 } as const;
 
+/** Gemini voice (same key as the coach). Overridable through functions/.env. */
 export const VOICE = {
-  sttModel: process.env.BYT_STT_MODEL || 'nova-3',
-  ttsVoice: process.env.BYT_TTS_VOICE || 'aura-2-thalia-en',
+  sttModel: process.env.BYT_STT_MODEL || 'gemini-3.5-transcribe',
+  ttsModel: process.env.BYT_TTS_MODEL || 'gemini-3.8-flash-lite-tts',
+  /** A warm, calm prebuilt voice. */
+  ttsVoice: process.env.BYT_TTS_VOICE || 'Sulafat',
 } as const;
 
 export const TIMEOUTS = {

@@ -47,7 +47,7 @@ export type CoachTurnResponse = {
 
 export type VoiceTurnResponse = CoachTurnResponse & {
   transcript: string;
-  replyAudio: { base64: string; mimeType: 'audio/mpeg' } | null;
+  replyAudio: { base64: string; mimeType: 'audio/wav' } | null;
 };
 
 export type AccountSnapshot = {

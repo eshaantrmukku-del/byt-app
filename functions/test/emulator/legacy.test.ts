@@ -7,7 +7,7 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { handleCoachTurn, handleGetAccount, type TurnDeps } from '../../src/turn/handlers.js';
 import { MockLlm } from '../../src/llm/mock.js';
-import { MockVoice } from '../../src/voice/deepgram.js';
+import { MockVoice } from '../../src/voice/mock.js';
 
 /** Prototype accounts (everything on users/{uid}) against the Firestore emulator. */
 

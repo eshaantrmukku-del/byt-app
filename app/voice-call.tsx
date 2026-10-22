@@ -152,7 +152,7 @@ export default function VoiceCallScreen() {
 
   const playReply = async (audio: { base64: string }) => {
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
-    const file = new File(Paths.cache, `byt-reply-${Date.now()}.mp3`);
+    const file = new File(Paths.cache, `byt-reply-${Date.now()}.wav`);
     file.write(audio.base64, { encoding: 'base64' });
     playbackFile.current = file;
     const p = createAudioPlayer(file.uri);
