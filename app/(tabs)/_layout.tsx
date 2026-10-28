@@ -1,8 +1,8 @@
-import { Tabs } from 'expo-router';
-import { BarChart2, Home, Settings, Target } from 'lucide-react-native';
-import { Platform } from 'react-native';
+import { router, Tabs } from 'expo-router';
+import { BarChart2, Home, MessageCircle, Settings, Target } from 'lucide-react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { theme } from '@/ui';
+import { shadows, theme } from '@/ui';
 
 export default function TabLayout() {
   return (
@@ -25,6 +25,27 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: ({ color }) => <Home size={24} color={color} /> }} />
       <Tabs.Screen name="goals" options={{ title: 'Goals', tabBarIcon: ({ color }) => <Target size={24} color={color} /> }} />
+      {/* The coach opens full screen over the tabs, so this tab is a button, not a page. */}
+      <Tabs.Screen
+        name="coach"
+        options={{
+          title: 'Coach',
+          tabBarButton: ({ onPress }) => (
+            <Pressable onPress={onPress} style={styles.coachTab} accessibilityRole="button" accessibilityLabel="Talk to your coach">
+              <View style={styles.coachCircle}>
+                <MessageCircle size={26} color="#FFFFFF" />
+              </View>
+              <Text style={styles.coachLabel}>Coach</Text>
+            </Pressable>
+          ),
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            router.push('/ai-coach');
+          },
+        }}
+      />
       <Tabs.Screen
         name="insights"
         options={{ title: 'Insights', tabBarIcon: ({ color }) => <BarChart2 size={24} color={color} /> }}
@@ -33,3 +54,20 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  coachTab: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  coachCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginTop: -22,
+    backgroundColor: theme.primary,
+    borderWidth: 4,
+    borderColor: theme.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.card,
+  },
+  coachLabel: { marginTop: 2, fontSize: 11, fontWeight: '600', color: theme.text },
+});

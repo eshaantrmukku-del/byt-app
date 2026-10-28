@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import {
   Bell,
   BookOpen,
-  Brain,
   CheckCircle,
   ChevronRight,
   Flame,
@@ -130,7 +129,6 @@ export default function HomeScreen() {
                 <ScrollView style={styles.flex} showsVerticalScrollIndicator={false}>
                   <Text style={styles.menuSectionHeader}>TOOLS</Text>
                   <MenuItem icon={CheckCircle} color="#60A5FA" bg="rgba(59,130,246,0.16)" label="Daily Check-In" onPress={go(() => router.push('/check-in'))} />
-                  <MenuItem icon={Brain} color="#A78BFA" bg="rgba(124,58,237,0.16)" label="Chat with AI" onPress={go(() => router.push('/chats'))} />
                   <MenuItem icon={TrendingUp} color="#22D3EE" bg="rgba(34,211,238,0.16)" label="My Goals" onPress={go(() => router.push('/goals'))} />
                   <MenuItem icon={Sparkles} color="#FBBF24" bg="rgba(245,158,11,0.16)" label="Reflect Now" onPress={go(() => router.push('/check-in'))} />
 

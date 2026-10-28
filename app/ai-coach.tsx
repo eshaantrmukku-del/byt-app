@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ChevronLeft, Pencil, Phone, Plus, RotateCcw, Send } from 'lucide-react-native';
+import { ChevronLeft, History, Pencil, Phone, Plus, RotateCcw, Send } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -221,6 +221,9 @@ export default function AiCoachScreen() {
           </Text>
         </TouchableOpacity>
         <View style={styles.headerRight}>
+          <TouchableOpacity onPress={() => router.push('/chats')} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Past conversations">
+            <History size={22} color={theme.text} />
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => conversationId && router.push({ pathname: '/voice-call', params: { id: conversationId } })}
             style={styles.iconButton}
