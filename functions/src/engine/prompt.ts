@@ -44,6 +44,8 @@ export function buildReplySystem(p: {
   analysis: TurnAnalysis;
   channel: Channel;
   contextBlock: string;
+  /** The coach's own recent replies, so it can avoid repeating itself. */
+  recentReplies?: string[];
   today: string;
   mode: CoachContextData['mode'];
 }): string {
@@ -62,7 +64,14 @@ export function buildReplySystem(p: {
     `Today is ${p.today}.`,
     p.contextBlock ? `# Background\n${p.contextBlock}` : '',
     `# Your read of their latest message\n${readingOfTurn(p.analysis)}`,
-    `# This turn: ${primary.label}\n${primary.guidance}${skills ? `\nSkills in play:\n${skills}` : ''}${secondary ? `\nIf it fits naturally afterwards: ${secondary.label.toLowerCase()} — but never at the cost of the above.` : ''}\nAim for about ${p.plan.targetWords} words and at most ${p.plan.maxQuestions} question.`,
+    `# This turn: ${primary.label}\n${primary.guidance}${skills ? `\nSkills in play:\n${skills}` : ''}${secondary ? `\nIf it fits naturally afterwards: ${secondary.label.toLowerCase()} — but never at the cost of the above.` : ''}\nAim for about ${p.plan.targetWords} words. ${
+      p.plan.maxQuestions === 0
+        ? "Don't ask a question this turn: you've asked several in a row. Say something that lands (what you sense underneath, a connection, an observation or a perspective) and leave space for them."
+        : 'At most one question, and only if it opens something.'
+    }`,
+    p.recentReplies?.length
+      ? `# Your last replies (don't reuse their openings, phrases or question shapes)\n${p.recentReplies.map((r) => `- ${r}`).join('\n')}`
+      : '',
     examples ? `# The shape of this move (illustration only; never reuse the wording)\n${examples}` : '',
     'Respond with JSON: {"reply": string, "goalProgress": object|null}.',
   ].filter(Boolean).join('\n\n');

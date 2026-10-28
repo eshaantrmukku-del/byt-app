@@ -26,7 +26,7 @@ export type TurnForJudge = {
   issues: GuardIssue[];
 };
 
-const RUBRIC = `You judge coaching against the Co-Active model. Score the conversation from 1 (poor) to 5 (strong) on each dimension and quote a short phrase as evidence. Be strict: a technically fine reply that is bad coaching is a failure. Generic advice, lists, "you should", praise, "why" questions, yes/no questions while exploring, hunches stated as facts, requests without room to say no, and profile recitation score 1 or 2 on the dimensions they affect.
+const RUBRIC = `You judge coaching against the Co-Active model. Score the conversation from 1 (poor) to 5 (strong) on each dimension and quote a short phrase as evidence. Be strict: a technically fine reply that is bad coaching is a failure. Judge the whole conversation: a coach that only mirrors and asks, repeats the same phrases or question shapes, or asks a question every single turn is interrogating, not coaching. Generic advice, lists, "you should", praise, "why" questions, yes/no questions while exploring, hunches stated as facts, requests without room to say no, and profile recitation score 1 or 2 on the dimensions they affect.
 ${Object.entries(EVAL_RUBRIC).map(([dimension, text]) => `- ${dimension}: ${text}`).join('\n')}`;
 
 const JUDGE_SCHEMA = {
@@ -97,13 +97,7 @@ export async function judgeScenario(
   }
 }
 
-export function guardOf(reply: string, move: string, channel: 'text' | 'voice', userTexts: string[]): GuardIssue[] {
-  const plan: MovePlan = {
-    primary: move as MovePlan['primary'],
-    maxQuestions: 1,
-    targetWords: channel === 'voice' ? 50 : 70,
-    why: '',
-  };
+export function guardOf(reply: string, plan: MovePlan, channel: 'text' | 'voice', userTexts: string[], coachTexts: string[] = []): GuardIssue[] {
   const input: GuardInput = {
     reply,
     plan,
@@ -114,6 +108,7 @@ export function guardOf(reply: string, move: string, channel: 'text' | 'voice', 
       income: '£32k',
     },
     userTexts,
+    coachTexts,
   };
   return checkReply(input);
 }

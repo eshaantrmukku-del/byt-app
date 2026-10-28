@@ -1,7 +1,7 @@
 import type { Channel } from '../contract.js';
 import type { GuardIssue, MovePlan, ProfileContext } from './types.js';
 
-const PRAISE = /\b(great job|well done|amazing|incredible|fantastic|awesome|brilliant|wonderful|so proud|proud of you|great question|good question|love that|you('re| are) (doing )?(great|amazing|so brave)|that's (great|amazing|wonderful|fantastic|brilliant))\b/i;
+const PRAISE = /^\s*(great|perfect|excellent|nice|love it)[.!,]|\b(great job|well done|amazing|incredible|fantastic|awesome|brilliant|wonderful|so proud|proud of you|great question|good question|love that|you('re| are) (doing )?(great|amazing|so brave)|that's (great|amazing|wonderful|fantastic|brilliant))\b/i;
 const DIRECTIVE = /\byou (really |definitely |absolutely )?(should|must|need to|have to|ought to|gotta)\b|\bhave you tried\b|\bmake sure (you|to)\b/gi;
 const LIST_LINE = /^\s*(?:[-*•‣▪]|\d+[.)]|[a-z][.)])\s+/m;
 const MARKDOWN = /\*\*|__|^#{1,6}\s|`/m;
@@ -9,7 +9,9 @@ const HUMAN_CLAIM = /\b(when i was (younger|your age|a)|i('ve| have) been there|
 const META = /\b(co-?active|powerful question|as your (ai )?coach,? i('m| am) going to|coaching (model|technique|framework))\b/i;
 const WHY_QUESTION = /(^|[.!?]\s+|,\s*)(but |and |so )?why\b[^.!?]*\?/i;
 const CLOSED_START = /^(do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|shall|am)\b/i;
-const LEADING = /\bhave you (considered|thought about|tried)\b|\bwhat if you (just|tried|simply)\b|\bwouldn'?t it be (better|easier|good)\b|\bdon'?t you think\b|\bisn'?t it (possible|true) that\b/i;
+const LEADING = /\bhow about (you|we|committing|trying|starting|making)\b|\bhave you (considered|thought about|tried)\b|\bwhat if you (just|tried|simply)\b|\bwouldn'?t it be (better|easier|good)\b|\bdon'?t you think\b|\bisn'?t it (possible|true) that\b/i;
+/** A statement that opens with an instruction ("Decide…", "Write it down…"). */
+const IMPERATIVE = /(^|,\s*)(decide|write|note|jot|try|make|start|set|commit|plan|pick|choose|schedule|block|take|focus|remember|keep|stop|go|get|put|list|prepare|practise|practice|aim)\b/i;
 const SOLVING = /\b(here are (some|a few)|here'?s (what|how) (to|you)|the (key|trick|secret) (is|here)|my advice|a (good|great) (tip|strategy|approach) (is|would be)|(start|try) (by|with) (making|writing|breaking|setting))\b/i;
 const TENTATIVE = /\b(hunch|i wonder|might be (off|wrong)|could be (off|wrong)|may be (off|wrong)|just a sense|i'?m (sensing|noticing)|i notice|does (that|this|it) (fit|land|ring true|sound right)|take it or leave it|not quite)\b/i;
 const ROOM_TO_DECLINE = /\b(say no|yes,? no|counter[- ]?offer|your call|up to you|turn (it|me) down)\b/i;
@@ -48,7 +50,14 @@ export type GuardInput = {
   profile: ProfileContext;
   /** User text this turn plus recent user messages: phrases they used themselves are fine to echo. */
   userTexts: string[];
+  /** The coach's last few replies, to catch it repeating itself. */
+  coachTexts?: string[];
 };
+
+/** Stock phrases that make a coach sound like a template when they recur. */
+const FORMULAS = ['it sounds like', 'what do you notice', 'what else', "you're noticing", 'i hear', "what's coming up", 'what is coming up', 'what does that'];
+const norm = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim();
+const opener = (s: string) => norm(s).split(' ').slice(0, 3).join(' ');
 
 /** Deterministic checks for the failure modes that make a coach sound like a generic assistant. */
 export function checkReply(input: GuardInput): GuardIssue[] {
@@ -69,13 +78,15 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   if (praise) issues.push({ check: 'praise', severity: 'block', detail: `Generic praise ("${praise[0]}"). Acknowledge something specific in plain words, or leave it out.` });
 
   const q = questions(reply);
-  const maxQ = channel === 'voice' ? 1 : plan.maxQuestions;
-  if (q > maxQ + 1 || (channel === 'voice' && q > 1)) {
+  const maxQ = channel === 'voice' ? Math.min(1, plan.maxQuestions) : plan.maxQuestions;
+  if (plan.maxQuestions === 0 && q > 0 && !safety) {
+    issues.push({ check: 'questions', severity: 'block', detail: 'Asks a question after a run of questions. Let this reply land as a statement.' });
+  } else if (q > maxQ + 1 || (channel === 'voice' && q > 1)) {
     issues.push({ check: 'questions', severity: 'block', detail: `Asks ${q} questions. Ask only one.` });
   } else if (q > maxQ) {
     issues.push({ check: 'questions', severity: 'warn', detail: `Asks ${q} questions; one is usually better.` });
   }
-  if (q === 0 && !safety) {
+  if (q === 0 && !safety && plan.maxQuestions > 0) {
     issues.push({ check: 'no-invitation', severity: 'warn', detail: 'No question or invitation; the conversation may stall.' });
   }
 
@@ -94,6 +105,15 @@ export function checkReply(input: GuardInput): GuardIssue[] {
     issues.push({ check: 'profile-recital', severity: 'block', detail: `Recites profile details they didn't bring up ("${echoed[0]}"). Use background quietly.` });
   }
 
+  const previous = (input.coachTexts ?? []).map(norm);
+  if (previous.length && !safety) {
+    const mine = norm(reply);
+    const sameOpening = previous.some((p) => opener(p) === opener(reply));
+    const reused = FORMULAS.find((f) => mine.includes(f) && previous.some((p) => p.includes(f)));
+    if (sameOpening || reused) {
+      issues.push({ check: 'repetition', severity: 'block', detail: `Repeats ${reused ? `"${reused}"` : 'the opening'} from a recent reply. Say it differently.` });
+    }
+  }
   if (!safety && WHY_QUESTION.test(reply)) {
     issues.push({ check: 'why-question', severity: 'block', detail: 'Asks "why", which invites defending. Ask "what" or "how" instead.' });
   }
@@ -103,6 +123,13 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   }
   if (!safety && !ADVISING_MOVES.has(plan.primary) && LEADING.test(reply)) {
     issues.push({ check: 'leading-question', severity: 'block', detail: 'A question with advice hidden in it. Ask what they think, without suggesting the answer.' });
+  }
+  const instruction = reply
+    .split(/(?<=[.!?])\s+/)
+    .map((x) => x.trim())
+    .find((x) => !x.endsWith('?') && IMPERATIVE.test(x));
+  if (!safety && !ADVISING_MOVES.has(plan.primary) && plan.primary !== 'make_request' && instruction) {
+    issues.push({ check: 'instructing', severity: 'block', detail: `Gives them an instruction ("${instruction.slice(0, 50)}"). Ask instead; let them design their own plan.` });
   }
   if (!safety && !ADVISING_MOVES.has(plan.primary) && SOLVING.test(reply)) {
     issues.push({ check: 'solving', severity: 'block', detail: 'Solves the problem for them. Help them find their own way instead.' });

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # The whole app on a phone with no billed API: local Firebase emulators with the offline
 # coach and voice, seeded with owner@example.com / Test-12345 (an old-app account).
+# BYT_LLM_MODE=groq npm run start:test uses Groq for the coach instead, with the key from
+# ~/byt-secrets-backup/groq.env (voice stays offline).
 # The phone must be on the Mac's Wi-Fi; the emulators are reached on the Mac's LAN address.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -15,7 +17,12 @@ JDK="$(ls -d "$PWD"/.tools/jdk-21* 2>/dev/null | head -1 || true)"
 if ! curl -s -o /dev/null "http://127.0.0.1:9099/"; then
   npm --prefix functions run build >/dev/null
   LOG="$(mktemp -t byt-emulators)"
-  BYT_LLM_MODE=mock npx firebase emulators:start --only functions,firestore,auth --project demo-byt >"$LOG" 2>&1 &
+  MODE="${BYT_LLM_MODE:-mock}"
+  if [ "$MODE" = groq ]; then
+    GROQ_API_KEY="$(grep '^GROQ_API_KEY=' "$HOME/byt-secrets-backup/groq.env" | cut -d= -f2-)"
+    export GROQ_API_KEY
+  fi
+  BYT_LLM_MODE="$MODE" npx firebase emulators:start --only functions,firestore,auth --project demo-byt >"$LOG" 2>&1 &
   EMULATORS_PID=$!
   trap 'kill "$EMULATORS_PID" 2>/dev/null || true' EXIT
   echo "Starting the Firebase emulators (log: $LOG)…"

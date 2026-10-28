@@ -79,7 +79,8 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
     reflection: ctx.mode === 'reflection',
   });
   const contextBlock = buildContextBlock(windowCtx, text, analysis);
-  const system = buildReplySystem({ plan, analysis, channel, contextBlock, today: ctx.today, mode: ctx.mode });
+  const recentReplies = window.filter((m) => m.role === 'coach').map((m) => m.text).slice(-3);
+  const system = buildReplySystem({ plan, analysis, channel, contextBlock, today: ctx.today, mode: ctx.mode, recentReplies });
   const messages = buildReplyMessages(window, text);
   const recentUserTexts = [text, ...window.filter((m) => m.role === 'user').map((m) => m.text)];
 
@@ -95,7 +96,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
       thinking: opts.replyThinking ?? 'low',
       maxOutputTokens: 4096,
       timeoutMs: replyTimeoutMs,
-      mockHints: { move: plan.primary, analysis, channel, text, profileName: ctx.profile.displayName },
+      mockHints: { move: plan.primary, maxQuestions: plan.maxQuestions, analysis, channel, text, profileName: ctx.profile.displayName },
     });
     tokensIn += res.inputTokens ?? 0;
     tokensOut += res.outputTokens ?? 0;
@@ -115,7 +116,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
     }
   }
 
-  const guard = (reply: string) => checkReply({ reply, plan, channel, profile: ctx.profile, userTexts: recentUserTexts });
+  const guard = (reply: string) => checkReply({ reply, plan, channel, profile: ctx.profile, userTexts: recentUserTexts, coachTexts: recentReplies });
   let issues: GuardIssue[] = guard(draft.reply);
   let regenerated = false;
   if (hasBlocking(issues) && Date.now() - started < replyTimeoutMs) {

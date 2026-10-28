@@ -37,7 +37,7 @@ function profileBlock(ctx: CoachContextData, text: string, a: TurnAnalysis): str
   if (years) lines.push(`Age: ${years}`);
   if (p.profession) lines.push(`Work: ${clip(p.profession, 120)}`);
   if (p.goalsSummary) lines.push(`What they hope to get from coaching: ${clip(p.goalsSummary, 300)}`);
-  if (p.struggles) lines.push(`Struggles they named: ${clip(p.struggles, 300)}`);
+  if (p.struggles) lines.push(`Struggles they named at sign-up (don't assume these are at play now): ${clip(p.struggles, 300)}`);
   if (p.lifestyle) lines.push(`Lifestyle: ${clip(p.lifestyle, 200)}`);
   if (p.income && (MONEY.test(text) || /financ|money|career/i.test(a.topic))) lines.push(`Income: ${clip(p.income, 80)}`);
   return lines.length ? lines.join('\n') : '';

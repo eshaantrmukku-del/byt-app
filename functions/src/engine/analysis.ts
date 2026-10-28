@@ -60,7 +60,17 @@ export const ANALYSIS_SCHEMA = {
   ],
 } as const;
 
-export const ANALYSIS_SYSTEM = `You analyse one turn of a private coaching conversation so a coach can decide how to respond. You do not reply to the user. Listen the way a skilled coach does: to their words and meaning, to the feeling and values underneath, and to the whole field (energy, hesitation, what they keep circling, what is left unsaid). Then fill in the JSON fields accurately and conservatively. Prefer the user's own words. Mark explicitAdviceRequest only for direct requests for what to do; a request for ideas or options is wantsIdeas. Only name a pattern with evidence from more than one message. Mark risk "crisis" for any mention of wanting to die, self-harm, harming others, abuse or immediate danger, even if phrased casually.`;
+export const ANALYSIS_SYSTEM = `You analyse one turn of a private coaching conversation so a coach can decide how to respond. You do not reply to the user. Listen the way a skilled coach does: to their words and meaning, to the feeling and values underneath, and to the whole field (energy, hesitation, what they keep circling, what is left unsaid). Then fill in the JSON fields accurately and conservatively. Prefer the user's own words.
+Calibrate carefully; these decide the coach's next move:
+- emotionalIntensity: 0 none; 1 mild or described calmly ("work feels pointless", "I'm stuck", "I'm worried"); 2 clearly upset in the moment (strong language, exclamations, "I'm furious", "I can't stand it"); 3 overwhelmed or distressed. Most messages are 0 or 1.
+- intent "vent": only when they are unloading about events or people and mainly want to be heard. Describing a problem, a pattern or a fear is "share".
+- innerCritic: any harsh judgement of themselves, including predictions like "I'll sound stupid", "I'll look like an idiot", "I'm not good enough".
+- insightMoment: they just saw something new about themselves ("Oh. I think I...", "I've just realised", "maybe the real issue is...").
+- commitmentStated / commitment: they say what they will do ("I'll...", "Next week I will..."). A conditional like "If it was one form tonight, I could do that" is stage "commitment", not yet a commitment.
+- allianceNote: ONLY when they say how the coach should coach them (tone, directness, number of questions, challenge). Their own plans are never an allianceNote.
+- explicitAdviceRequest: only direct requests for what to do; a request for ideas or options is wantsIdeas.
+- pattern: only with evidence from more than one of their messages.
+- risk "crisis": any mention of wanting to die, self-harm, harming others, abuse or immediate danger, even if phrased casually.`;
 
 export function buildAnalysisPrompt(text: string, ctx: CoachContextData): string {
   const recent = ctx.history.slice(-8).map((m) => `${m.role === 'user' ? 'User' : 'Coach'}: ${m.text}`).join('\n');
@@ -92,7 +102,7 @@ export function detectCrisis(text: string): boolean {
 
 const ADVICE = /\b(what should i|should i\b|what do i do|what would you do|tell me what to do|give me (some )?(advice|tips|steps)|any (advice|tips)|how (do|can|should) i\b|what('s| is) the best way)/i;
 const IDEAS = /\b(any ideas|ideas (for|on|about)|give me (some )?ideas|brainstorm|what are (some|my) options|help me (think of|come up with)|ways (to|i could))\b/i;
-const CRITIC = /\b(i'?m (just |so )?(not (good|smart|clever|talented|strong|brave) enough|stupid|useless|a fraud|an idiot|pathetic|terrible at \w+|bad at \w+)|who am i to|i always (mess|screw|fuck) (it|things|everything) up|i'?ll never be (good|enough|able))/i;
+const CRITIC = /\b(i'?m (just |so )?(not (good|smart|clever|talented|strong|brave) enough|stupid|useless|a fraud|an idiot|pathetic|terrible at \w+|bad at \w+)|i'?ll (sound|look) (stupid|like an idiot|dumb)|who am i to|i always (mess|screw|fuck) (it|things|everything) up|i'?ll never be (good|enough|able))/i;
 const ONE_WAY = /\b(the only (way|option|choice)|no other (way|option|choice)|i (either|have to either)\b.*\bor\b|there'?s no (other )?way (out|round|around))/i;
 const ALLIANCE = /\b(be (more |a bit more )?(direct|blunt|honest|gentle|gentler|tough|tougher|harsh|harder) (with|on) me|(don'?t|stop) (sugar-?coat|being so (soft|nice)|asking so many questions)|push me|challenge me|call me out|less questions|fewer questions|just listen)\b/i;
 const CLOSING = /^\s*(ok(ay)?[,.]?\s+)?(thanks|thank you|cheers|ta)\b.*\b(go|later|bye|tomorrow|night|helpful|enough|for now)\b|^\s*(i (have|need|got) to go|gotta go|got to go|talk (later|soon|tomorrow)|bye|good ?night)\b/i;
@@ -174,13 +184,14 @@ export function heuristicAnalysis(text: string, ctx: CoachContextData): TurnAnal
   if (/!{2,}|\b(really|so|completely) (hard|bad|awful)\b/i.test(text) && intensity < 3) intensity = Math.max(intensity, 2) as 2;
   const crisis = detectCrisis(text);
   const advice = ADVICE.test(text);
-  const commitment = COMMIT.test(text) && !/\?\s*$/.test(text);
   const insight = INSIGHT.test(text);
   const resistance = RESIST.test(text);
   const progress = PROGRESS.test(text);
   const greeting = GREETING.test(text.trim());
   const closing = CLOSING.test(text) && !advice;
   const critic = text.match(CRITIC)?.[0] ?? null;
+  // "I'll sound stupid" is the critic talking, not a plan.
+  const commitment = COMMIT.test(text) && !/\?\s*$/.test(text) && !critic;
   const outcome = progress ? (MISSED.test(text) ? 'missed' : PARTIAL.test(text) ? 'partial' : 'kept') : null;
   const open = openCommitments(ctx.memory);
   const assumptions = ASSUME.test(text) ? [text.match(ASSUME)![0]] : [];

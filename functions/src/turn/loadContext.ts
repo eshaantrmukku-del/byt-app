@@ -65,7 +65,11 @@ export async function loadCoachContext(
 
   const history: HistoryMessage[] = messagesSnap.docs
     .filter((d) => !exclude.has(d.id))
-    .map((d) => ({ role: d.data().role === 'coach' ? 'coach' as const : 'user' as const, text: str(d.data().text) ?? '' }))
+    .map((d) => ({
+      role: d.data().role === 'coach' ? ('coach' as const) : ('user' as const),
+      text: str(d.data().text) ?? '',
+      ...(str(d.data().move) ? { move: str(d.data().move) } : {}),
+    }))
     .filter((m) => m.text)
     .slice(0, HISTORY_LOAD)
     .reverse();

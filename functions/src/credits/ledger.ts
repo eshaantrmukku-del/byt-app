@@ -285,6 +285,8 @@ export type CompleteTurnParams = {
   tokens: number;
   proposal?: GoalProgressProposal;
   summary?: { text: string; messageCount: number };
+  /** The coaching move behind the reply, so later turns can see their own pattern. */
+  move?: string;
 };
 
 /**
@@ -332,6 +334,7 @@ export async function completeTurn(
       text: p.reply,
       clientTurnId: p.requestId,
       channel: p.channel,
+      ...(p.move ? { move: p.move } : {}),
       createdAt: Timestamp.fromMillis(replyCreatedAtMs),
     });
     tx.set(convRef, {

@@ -6,6 +6,7 @@ import { runCoachingEngine } from '../../functions/src/engine/engine.js';
 import type { HistoryMessage } from '../../functions/src/engine/types.js';
 import { hasBlocking } from '../../functions/src/engine/guard.js';
 import { GeminiClient } from '../../functions/src/llm/gemini.js';
+import { GROQ_MODELS, GroqClient } from '../../functions/src/llm/groq.js';
 import { MockLlm } from '../../functions/src/llm/mock.js';
 import type { LlmClient } from '../../functions/src/llm/types.js';
 import { makeContext } from '../../functions/test/fixtures.js';
@@ -56,7 +57,7 @@ async function runScenario(llm: LlmClient, scenario: Scenario, models: { reply: 
       { text: turn.user, channel, context: contextFor(scenario, history) },
       { models: { reply: models.reply, analysis: models.analysis, summary: models.analysis } },
     );
-    const issues = guardOf(result.reply, result.trace.plan.primary, channel, [turn.user, ...history.filter((m) => m.role === 'user').map((m) => m.text)]);
+    const issues = guardOf(result.reply, result.trace.plan, channel, [turn.user, ...history.filter((m) => m.role === 'user').map((m) => m.text)], history.filter((m) => m.role === 'coach').map((m) => m.text).slice(-3));
     const blocking = issues.filter((issue) => issue.severity === 'block').map((issue) => issue.check);
     if (hasBlocking(issues)) failures.push(`${scenario.id}: ${blocking.join(', ')}`);
     if (turn.expectMove && result.trace.plan.primary !== turn.expectMove) {
@@ -75,7 +76,7 @@ async function runScenario(llm: LlmClient, scenario: Scenario, models: { reply: 
       failures.push(`${scenario.id}: voice reply too long`);
     }
     turns.push({ user: turn.user, reply: result.reply, move: result.trace.plan.primary, ...(turn.expectMove ? { expectMove: turn.expectMove } : {}), blocking });
-    history.push({ role: 'user', text: turn.user }, { role: 'coach', text: result.reply });
+    history.push({ role: 'user', text: turn.user }, { role: 'coach', text: result.reply, move: result.trace.plan.primary });
   }
   const judged = await judgeScenario(process.env.BYT_EVAL_MODE === 'mock' ? null : llm, process.env.BYT_JUDGE_MODEL || DEFAULTS.judge, scenario.id, turns.map((turn) => ({ ...turn, issues: [] })));
   return { id: scenario.id, category: scenario.category, turns, scores: judged.scores, mean: mean(judged.scores), judge: judged.source, failures };
@@ -106,6 +107,13 @@ function markdown(mode: string, results: ScenarioResult[], failures: string[]): 
     '| --- | --- | --- | --- |',
     rows,
     '',
+    '## Conversations',
+    '',
+    ...results.flatMap((result) => [
+      `### ${result.id} (${result.mean.toFixed(2)})`,
+      '',
+      ...result.turns.flatMap((turn) => [`**User:** ${turn.user}`, '', `**Coach** _(${turn.move})_: ${turn.reply}`, '']),
+    ]),
     '## Model shortlist',
     '',
     ...MODEL_SHORTLIST.map((model) => `- \`${model.id}\` (${model.role.join(', ')}, $${model.inputUsd}/$${model.outputUsd} per 1M): ${model.note}`),
@@ -115,22 +123,45 @@ function markdown(mode: string, results: ScenarioResult[], failures: string[]): 
   ].join('\n');
 }
 
+/** Waits out per-minute rate limits (Groq's free tier) instead of failing the scenario. */
+function patient(llm: LlmClient): LlmClient {
+  return {
+    name: llm.name,
+    async generate(req) {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await llm.generate(req);
+        } catch (error) {
+          if ((error as { kind?: string }).kind !== 'rate-limit' || attempt >= 6) throw error;
+          await new Promise((r) => setTimeout(r, 20_000));
+        }
+      }
+    },
+  };
+}
+
 async function main() {
+  // GROQ_API_KEY runs the eval on Groq; otherwise GEMINI_API_KEY; with neither, the offline coach.
+  const groq = process.env.GROQ_API_KEY && process.env.BYT_EVAL_MODE !== 'mock';
   const key = process.env.GEMINI_API_KEY;
-  const mock = !key || process.env.BYT_EVAL_MODE === 'mock';
-  const replyModel = mock ? 'mock-coach' : process.env.BYT_REPLY_MODEL || DEFAULTS.reply;
-  const analysisModel = mock ? 'mock-coach' : process.env.BYT_ANALYSIS_MODEL || DEFAULTS.analysis;
-  const llm: LlmClient = mock ? new MockLlm() : new GeminiClient(key!);
+  const mock = !groq && (!key || process.env.BYT_EVAL_MODE === 'mock');
+  const replyModel = mock ? 'mock-coach' : groq ? GROQ_MODELS.reply : process.env.BYT_REPLY_MODEL || DEFAULTS.reply;
+  const analysisModel = mock ? 'mock-coach' : groq ? GROQ_MODELS.analysis : process.env.BYT_ANALYSIS_MODEL || DEFAULTS.analysis;
+  if (groq && !process.env.BYT_JUDGE_MODEL) process.env.BYT_JUDGE_MODEL = GROQ_MODELS.reply;
+  const base: LlmClient = mock ? new MockLlm() : groq ? new GroqClient(process.env.GROQ_API_KEY!) : new GeminiClient(key!);
+  const llm = groq ? patient(base) : base;
   const started = Date.now();
   const results: ScenarioResult[] = [];
-  for (const scenario of SCENARIOS) {
+  // BYT_EVAL_ONLY=id1,id2 runs just those scenarios.
+  const only = process.env.BYT_EVAL_ONLY?.split(',').map((id) => id.trim()).filter(Boolean);
+  for (const scenario of only?.length ? SCENARIOS.filter((s) => only.includes(s.id)) : SCENARIOS) {
     results.push(await runScenario(llm, scenario, { reply: replyModel, analysis: analysisModel }));
   }
   const failures = results.flatMap((result) => result.failures);
   const overall = results.reduce((sum, result) => sum + result.mean, 0) / results.length;
   mkdirSync(outDir, { recursive: true });
   const report = {
-    mode: mock ? 'mock' : 'live',
+    mode: mock ? 'mock' : groq ? 'live-groq' : 'live',
     replyModel,
     analysisModel,
     scenarios: results.length,

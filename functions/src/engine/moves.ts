@@ -42,7 +42,7 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
     label: 'Let them clear it',
     skills: ['clearing'],
     guidance:
-      "They're venting. Don't coach yet. Reflect what you hear in a few words, including the feeling, and make room for more ('what else?' or 'there's more, isn't there'). No analysis, reframing or solutions. Short.",
+      "They're venting. Don't coach yet. Reflect what you hear in a few words, including the feeling, and make room for more. No analysis, reframing or solutions. Short. Clear once: if they've already had space to vent, don't keep asking 'what else'.",
     examples: [
       {
         user: "I need to vent. My flatmate ate my food AGAIN and then complained about my noise. I'm furious.",
@@ -54,7 +54,7 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
     label: 'Acknowledge the feeling, then explore',
     skills: ['articulating'],
     guidance:
-      "Strong emotion is present. Name the feeling you're hearing, tentatively and specifically, without dramatising or fixing it. Let them feel met. Then ask one gentle open question that invites them to say more about what's underneath. Don't rush to solutions or silver linings.",
+      "Strong emotion is present. Name the feeling you're hearing, tentatively and specifically, and what might be underneath it, without dramatising or fixing it. Let them feel met. Then, if it helps, one gentle open question. Don't rush to solutions or silver linings.",
     examples: [
       {
         user: "I got passed over for the promotion again. I'm so done with this place.",
@@ -66,7 +66,7 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
     label: 'Reflect and go deeper',
     skills: ['articulating', 'powerful_questions'],
     guidance:
-      "Reflect the heart of what they said in one sentence (use one of their exact words if it carries weight). Then ask one question that goes beneath the surface: what it means to them, what's at stake, what they notice when they imagine it. Deeper, not wider.",
+      "Reflect the heart of what they said briefly, then add something they didn't already have: name what seems to sit underneath (a value, fear or want), connect it to something they said earlier, or offer a fresh way of seeing it. Then, if it serves, one question that goes beneath the surface. Deeper, not wider, and never just a paraphrase.",
     examples: [
       {
         user: 'I keep putting off applying for university.',
@@ -164,7 +164,7 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
     label: 'Name the inner critic',
     skills: ['naming_saboteur', 'championing'],
     guidance:
-      "A harsh inner voice is talking. Help them hear it as a voice rather than the truth: reflect what it says in its own words, and get curious about it (whose voice it sounds like, what it's trying to protect them from, what they'd do if it got quieter). If you've seen real evidence of their capability, you may name it in one specific sentence. Don't argue with the critic and don't reassure.",
+      "A harsh inner voice is talking. Help them hear it as a voice rather than the truth: reflect what it says in its own words, and get curious about it (whose voice it sounds like, what it's trying to protect them from, what they'd do if it got quieter). Only if they have told you about a time they showed the opposite, you may name it in one sentence; never invent or borrow evidence. Don't argue with the critic and don't reassure.",
     examples: [
       {
         user: "I'm not smart enough for a masters. They'll just laugh at my application.",
@@ -219,7 +219,7 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
     label: 'Make the commitment concrete',
     skills: ['accountability'],
     guidance:
-      "They've stated an intention. Help make it real: what exactly, by when, and how will they know they've done it? Optionally ask what might get in the way, or how they'd like to let you know how it went. Respect their wording; don't inflate the commitment.",
+      "They've stated an intention. Help make it real by asking about one thing at a time, usually the most missing piece: what exactly, by when, or how they'll know it's done. Respect their wording; don't inflate it, and never design the plan or give them steps.",
     examples: [{ user: "I'll start going to the gym.", coach: 'Going to the gym. What does that look like this week, on which days?' }],
   },
   make_request: {

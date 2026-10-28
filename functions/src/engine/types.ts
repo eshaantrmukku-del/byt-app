@@ -31,7 +31,8 @@ export type CheckInContext = {
 
 export type JournalContext = { date: string; text: string };
 
-export type HistoryMessage = { role: 'user' | 'coach'; text: string };
+/** `move` is the coaching move behind a coach message (absent on older messages). */
+export type HistoryMessage = { role: 'user' | 'coach'; text: string; move?: string };
 
 export type CoachContextData = {
   /** YYYY-MM-DD in the user's day (server uses UTC); check-ins older than 14 days are dropped. */

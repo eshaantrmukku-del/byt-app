@@ -86,9 +86,24 @@ function coachReply(req: LlmRequest): string {
     advice_with_permission:
       "I can offer a perspective rather than a verdict. One option some people find useful is to start with the smallest piece that would teach them something. What feels like it would fit you?",
   };
+  const statementOnly = hint<number>(req, 'maxQuestions') === 0;
+  if (isRetry || statementOnly) {
+    // A rewrite: a plain statement that varies with what they said, so it doesn't repeat.
+    const seed = [...(hint<string>(req, 'text') ?? '')].reduce((n, c) => n + c.charCodeAt(0), 0) + req.messages.length;
+    return LANDINGS[seed % LANDINGS.length]!;
+  }
   const reply = replies[move] ?? replies.reflect_and_deepen!;
-  return voice || isRetry ? reply.replace(/["—]/g, '') : reply;
+  return voice ? reply.replace(/["—]/g, '') : reply;
 }
+
+/** Statements the offline coach uses when it must not ask, or must say it differently. */
+const LANDINGS = [
+  'There is more weight in that than the words let on, and it seems to be about more than this one task.',
+  'That says a lot about what matters to you here, maybe more than the plan itself.',
+  'Something shifted in how you put that, and it is worth staying with for a moment.',
+  'Part of you already knows where this is heading, even if the rest is not ready yet.',
+  'That tension between wanting it and holding back seems to be the real thing here.',
+];
 
 function naiveReply(req: LlmRequest): string {
   return [

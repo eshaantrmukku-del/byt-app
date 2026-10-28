@@ -8,6 +8,7 @@ import { onCall, type CallableOptions, type CallableRequest } from 'firebase-fun
 import { FUNCTIONS_REGION } from './contract.js';
 import { CoachError, toHttpsError } from './errors.js';
 import { GeminiClient } from './llm/gemini.js';
+import { GROQ_MODELS, GroqClient } from './llm/groq.js';
 import { MockLlm } from './llm/mock.js';
 import type { LlmClient } from './llm/types.js';
 import { handleCoachTurn, handleGetAccount, handleVoiceAudio, handleVoiceTurn, type TurnDeps } from './turn/handlers.js';
@@ -20,21 +21,24 @@ const db = getFirestore();
 
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
-/** Offline providers are only ever allowed inside the local emulator. */
-const MOCK = process.env.FUNCTIONS_EMULATOR === 'true' && process.env.BYT_LLM_MODE === 'mock';
+/** Offline providers, and Groq for comparing models, are only ever allowed inside the local emulator. */
+const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
+const MOCK = EMULATOR && process.env.BYT_LLM_MODE === 'mock';
+const GROQ = EMULATOR && process.env.BYT_LLM_MODE === 'groq';
 
 let gemini: LlmClient | undefined;
 let geminiVoice: VoiceProvider | undefined;
 
 function llm(): LlmClient {
   if (MOCK) return (gemini ??= new MockLlm());
+  if (GROQ) return (gemini ??= new GroqClient(process.env.GROQ_API_KEY ?? ''));
   const key = GEMINI_API_KEY.value();
   if (!key) throw new CoachError('not-configured');
   return (gemini ??= new GeminiClient(key));
 }
 
 function voice(): VoiceProvider {
-  if (MOCK) return (geminiVoice ??= new MockVoice({ playable: true }));
+  if (MOCK || GROQ) return (geminiVoice ??= new MockVoice({ playable: true }));
   const key = GEMINI_API_KEY.value();
   if (!key) throw new CoachError('not-configured');
   return (geminiVoice ??= new GeminiVoice(key));
@@ -47,6 +51,7 @@ const deps: TurnDeps = {
   now: Date.now,
   // Structured, content-free logs: ids, moves, latencies and outcomes — never message text.
   log: (event, fields) => logger.info(event, fields),
+  ...(GROQ ? { engineOptions: { models: GROQ_MODELS } } : {}),
 };
 
 const base: CallableOptions = {

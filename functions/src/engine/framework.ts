@@ -188,8 +188,8 @@ export const SKILLS: Record<SkillId, Skill> = {
     name: 'Championing',
     context: 'forward_deepen',
     does:
-      "When they doubt themselves, name specific evidence of their capability that you've actually seen in what they've said or done. Believe in them out loud, briefly.",
-    avoid: 'Generic cheerleading or praise that has no evidence behind it.',
+      "When they doubt themselves, name specific evidence of their capability from what they have actually told you in your conversations. Believe in them out loud, briefly. If you have no real evidence, believe in them without inventing any.",
+    avoid: 'Generic cheerleading, praise without evidence, or evidence you made up or borrowed from their sign-up profile.',
   },
   acknowledging: {
     name: 'Acknowledging',

@@ -189,3 +189,58 @@ describe('coach memory', () => {
     expect(buildContextBlock(makeContext({ memory }), 'hey', makeAnalysis())).toContain('Call Dad');
   });
 });
+
+describe('pacing (from real Groq conversations)', () => {
+  const coach = (text: string, move: string): HistoryMessage => ({ role: 'coach', text, move });
+  const user = (text: string): HistoryMessage => ({ role: 'user', text });
+
+  it('clears once, then meets the feeling another way', () => {
+    const vent = makeAnalysis({ intent: 'vent', emotionalIntensity: 2 });
+    expect(selectMoves(vent, [user('x'), coach('That is a lot.', 'clearing')], 'text').primary).not.toBe('clearing');
+  });
+
+  it('puts an insight, a commitment or the inner critic ahead of moderate feeling', () => {
+    const feeling = { intent: 'vent' as const, emotionalIntensity: 2 as const };
+    expect(selectMoves(makeAnalysis({ ...feeling, innerCritic: "I'll sound stupid" }), turns(1), 'text').primary).toBe('name_inner_critic');
+    expect(selectMoves(makeAnalysis({ ...feeling, commitmentStated: true }), turns(1), 'text').primary).toBe('secure_commitment');
+  });
+
+  it("doesn't mistake their own plan for a coaching preference", () => {
+    expect(selectMoves(makeAnalysis({ allianceNote: 'speak up', commitmentStated: true }), turns(2), 'text').primary).toBe('secure_commitment');
+  });
+
+  it('stops asking after two questions in a row, and moves on after two exploring turns', () => {
+    const asked = [user('a'), coach('What matters here?', 'reflect_and_deepen'), user('b'), coach('What would change?', 'reflect_and_deepen')];
+    const next = selectMoves(makeAnalysis(), asked, 'text');
+    expect(next.primary).toBe('clarify_want');
+    const landed = selectMoves(makeAnalysis({ emotionalIntensity: 2 }), asked, 'text');
+    expect(landed.primary).toBe('acknowledge_and_explore');
+    expect(landed.maxQuestions).toBe(0);
+  });
+
+  it('blocks a question when the plan says to let the reply land, and blocks repeated phrasing', () => {
+    const profile = makeContext().profile;
+    const check = (reply: string, p: MovePlan, coachTexts: string[]) =>
+      checkReply({ reply, plan: p, channel: 'text', profile, userTexts: ['x'], coachTexts }).filter((i) => i.severity === 'block').map((i) => i.check);
+    expect(check('That fear of a no is doing a lot of steering. What else?', { ...plan('reflect_and_deepen'), maxQuestions: 0 }, [])).toContain('questions');
+    expect(check('That fear of a no is doing a lot of steering.', { ...plan('reflect_and_deepen'), maxQuestions: 0 }, [])).toEqual([]);
+    expect(check('It sounds like money and meaning are pulling apart. What matters most?', plan('reflect_and_deepen'), ['It sounds like work is draining.'])).toContain('repetition');
+    expect(check('Money and meaning are pulling apart. Which one is louder lately?', plan('reflect_and_deepen'), ['It sounds like work is draining. What do you notice?'])).toEqual([]);
+  });
+});
+
+describe('no instructions or empty praise', () => {
+  const profile = makeContext().profile;
+  const run = (reply: string, move: Move) =>
+    checkReply({ reply, plan: plan(move), channel: 'text', profile, userTexts: ['x'] }).filter((i) => i.severity === 'block').map((i) => i.check);
+
+  it('blocks a plan handed to them, "how about…" and a bare "Great."', () => {
+    expect(run('Great. For the next stand-up, write it down beforehand. When will you do it?', 'secure_commitment')).toEqual(expect.arrayContaining(['praise', 'instructing']));
+    expect(run('How about committing to one point per meeting? What fits?', 'secure_commitment')).toContain('leading-question');
+    expect(run('One small thing at the next stand-up. Which moment will you pick?', 'secure_commitment')).toEqual([]);
+  });
+
+  it('still lets an asked-for perspective or a request be phrased as an option', () => {
+    expect(run('Try weighing it on which life you want in two years. What does your gut say?', 'advice_with_permission')).toEqual([]);
+  });
+});

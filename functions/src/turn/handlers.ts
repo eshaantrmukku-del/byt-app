@@ -160,6 +160,7 @@ async function runTurn(
       conversationId: p.conversationId,
       channel: p.channel,
       reply: result.reply,
+      move: result.trace.plan.primary,
       nowMs: deps.now(),
       tokens,
       ...(result.proposal ? { proposal: result.proposal } : {}),
