@@ -163,7 +163,7 @@ export default function VoiceCallScreen() {
   /** Plays one clip to the end. Resolves early if the user interrupts or leaves. */
   const playClip = async (audio: ReplyAudio) => {
     const file = new File(Paths.cache, `byt-reply-${Date.now()}.wav`);
-    file.write(audio.base64, { encoding: 'base64' });
+    await file.write(audio.base64, { encoding: 'base64' });
     playbackFile.current = file;
     const p = createAudioPlayer(file.uri);
     player.current = p;

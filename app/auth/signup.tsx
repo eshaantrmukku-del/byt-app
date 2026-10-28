@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Lock, Mail, User } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { Alert, TextInput } from 'react-native';
+import { Alert, type TextInputInstance } from 'react-native';
 
 import { friendlyError, validateEmail, validateNewPassword } from '@/features/auth/authErrors';
 import { PROFILE_LIMITS } from '@/features/profile/validation';
@@ -13,8 +13,8 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const emailRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
 
   const handleSignup = async () => {
     if (!email.trim() || !name.trim() || !password) {

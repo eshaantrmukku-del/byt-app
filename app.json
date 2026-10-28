@@ -53,7 +53,8 @@
         {
           "microphonePermission": "BYT uses the microphone so you can talk with your coach."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

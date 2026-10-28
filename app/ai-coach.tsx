@@ -267,7 +267,7 @@ export default function AiCoachScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-            ListFooterComponent={listFooter}
+            ListFooterComponent={listFooter ?? undefined}
           />
         )}
 

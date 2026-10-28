@@ -11,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  type TextInputInstance,
   type TextInputProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -50,7 +51,7 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
 type FieldProps = TextInputProps & { icon: LucideIcon; placeholder: string };
 
 /** Rounded input with a leading icon; the placeholder doubles as its accessibility label. */
-export const AuthField = forwardRef<TextInput, FieldProps>(function AuthField({ icon: Icon, placeholder, ...rest }, ref) {
+export const AuthField = forwardRef<TextInputInstance, FieldProps>(function AuthField({ icon: Icon, placeholder, ...rest }, ref) {
   return (
     <View style={styles.inputGroup}>
       <View style={styles.inputIcon}>

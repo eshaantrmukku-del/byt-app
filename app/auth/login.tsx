@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Lock, Mail } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { Alert, Text, TextInput, TouchableOpacity } from 'react-native';
+import { Alert, Text, TouchableOpacity, type TextInputInstance } from 'react-native';
 
 import { friendlyError, validateEmail } from '@/features/auth/authErrors';
 import { logIn, requestPasswordReset } from '@/services/authService';
@@ -13,7 +13,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const passwordRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
