@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { outputBudget } from '../../src/llm/groq.js';
 import { chunks, joinWavs } from '../../src/voice/groq.js';
 
 /** A minimal 16-bit mono WAV holding the given samples. */
@@ -46,5 +47,13 @@ describe('Groq voice helpers', () => {
     const fixed = joinWavs([streamed]);
     expect(fixed.readUInt32LE(4)).toBe(fixed.length - 8);
     expect(fixed.readUInt32LE(40)).toBe(6);
+  });
+
+  it('keeps prompt plus output under the per-minute token limit', () => {
+    const short = outputBudget({ system: 'x'.repeat(3500), messages: [], maxOutputTokens: 4096 });
+    expect(short).toBe(4096);
+    const long = outputBudget({ system: 'x'.repeat(17_500), messages: [{ role: 'user', text: 'y'.repeat(3500) }], maxOutputTokens: 4096 });
+    expect(long + 6000).toBeLessThanOrEqual(8000);
+    expect(long).toBeGreaterThanOrEqual(600);
   });
 });

@@ -10,6 +10,29 @@ type ChatResponse = {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 };
 
+/**
+ * Groq limits tokens per model per minute. When one model is out for the minute, the
+ * retry goes to another with its own allowance instead of waiting or failing.
+ */
+const RATE_LIMIT_FALLBACK: Record<string, string> = {
+  'openai/gpt-oss-120b': 'qwen/qwen3.8-27b',
+  'qwen/qwen3.8-27b': 'openai/gpt-oss-20b',
+  'openai/gpt-oss-20b': 'qwen/qwen3.8-27b',
+};
+
+/**
+ * Groq counts the requested output allowance against the per-minute token limit, and
+ * rejects (413) any request whose prompt plus allowance is over it. Long conversations
+ * get a smaller output allowance instead, which is still plenty for a coaching reply.
+ */
+const TOKENS_PER_MINUTE = Number(process.env.BYT_GROQ_TPM) || 8000;
+export function outputBudget(req: Pick<LlmRequest, 'system' | 'messages' | 'maxOutputTokens'>): number {
+  const promptChars = req.system.length + req.messages.reduce((n, m) => n + m.text.length, 0);
+  const promptTokens = Math.ceil(promptChars / 3.5);
+  const room = TOKENS_PER_MINUTE - promptTokens - 400;
+  return Math.max(600, Math.min(req.maxOutputTokens ?? 4096, room));
+}
+
 function classify(status: number): LlmError {
   if (status === 429) return new LlmError('Model rate limited', 'rate-limit');
   if (status === 401 || status === 403) return new LlmError('Model credentials rejected', 'config');
@@ -30,6 +53,7 @@ export class GroqClient implements LlmClient {
     const deadline = started + req.timeoutMs;
     let lastError: LlmError | undefined;
     let waitMs = 300;
+    let model = req.model;
     // One retry for transient failures, only if there is time left for it.
     for (let attempt = 0; attempt < 2; attempt++) {
       const remaining = deadline - Date.now();
@@ -42,14 +66,16 @@ export class GroqClient implements LlmClient {
           signal: controller.signal,
           headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
           body: JSON.stringify({
-            model: req.model,
+            model,
             messages: [
               { role: 'system', content: req.system },
               ...req.messages.map((m) => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text })),
             ],
-            ...(req.maxOutputTokens ? { max_completion_tokens: req.maxOutputTokens } : {}),
+            max_completion_tokens: outputBudget(req),
             ...(req.jsonSchema ? { response_format: { type: 'json_schema', json_schema: { name: req.purpose, schema: req.jsonSchema, strict: false } } } : {}),
-            ...(req.thinking && /gpt-oss/.test(req.model) ? { reasoning_effort: EFFORT[req.thinking] } : {}),
+            ...(req.thinking && /gpt-oss/.test(model) ? { reasoning_effort: EFFORT[req.thinking] } : {}),
+            // Qwen thinks out loud unless told not to put its reasoning in the reply.
+            ...(/qwen/.test(model) ? { reasoning_format: 'hidden' } : {}),
           }),
         });
         if (!res.ok) {
@@ -59,11 +85,11 @@ export class GroqClient implements LlmClient {
           throw classify(res.status);
         }
         const data = (await res.json()) as ChatResponse;
-        const text = data.choices?.[0]?.message?.content ?? '';
+        const text = (data.choices?.[0]?.message?.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
         if (!text.trim()) throw new LlmError(`Empty model response (${data.choices?.[0]?.finish_reason ?? 'unknown'})`, 'bad-response');
         return {
           text,
-          model: req.model,
+          model,
           latencyMs: Date.now() - started,
           inputTokens: data.usage?.prompt_tokens,
           outputTokens: data.usage?.completion_tokens,
@@ -76,6 +102,10 @@ export class GroqClient implements LlmClient {
               ? new LlmError('Model request timed out', 'timeout')
               : new LlmError('Model request failed', 'server');
         if (lastError.kind === 'config') throw lastError;
+        if (attempt === 0 && lastError.kind === 'rate-limit' && RATE_LIMIT_FALLBACK[model]) {
+          model = RATE_LIMIT_FALLBACK[model]!;
+          continue;
+        }
         if (attempt === 0) {
           // Only wait if the retry would still fit before the deadline.
           if (deadline - Date.now() - waitMs < 1500) break;
@@ -92,7 +122,8 @@ export class GroqClient implements LlmClient {
 /** The Groq models used when testing with Groq. */
 export const GROQ_MODELS = {
   reply: process.env.BYT_GROQ_REPLY_MODEL || 'openai/gpt-oss-120b',
-  // The 20b model misread too many turns (insights as commitments, worry as venting).
-  analysis: process.env.BYT_GROQ_ANALYSIS_MODEL || 'openai/gpt-oss-120b',
+  // Groq limits tokens per model, so analysis runs on a different model from replies and
+  // the two don't starve each other. (The 20b gpt-oss misread too many turns.)
+  analysis: process.env.BYT_GROQ_ANALYSIS_MODEL || 'qwen/qwen3.8-27b',
   summary: process.env.BYT_GROQ_SUMMARY_MODEL || 'openai/gpt-oss-20b',
 } as const;

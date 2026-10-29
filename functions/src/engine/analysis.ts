@@ -61,6 +61,7 @@ export const ANALYSIS_SCHEMA = {
 } as const;
 
 export const ANALYSIS_SYSTEM = `You analyse one turn of a private coaching conversation so a coach can decide how to respond. You do not reply to the user. Listen the way a skilled coach does: to their words and meaning, to the feeling and values underneath, and to the whole field (energy, hesitation, what they keep circling, what is left unsaid). Then fill in the JSON fields accurately and conservatively. Prefer the user's own words.
+Every field describes the LATEST message only. Earlier messages, past sessions and their profile are there to help you understand it, never as something to flag again now: if the latest message doesn't contain an inner critic, a commitment or an assumption, those fields are empty.
 Calibrate carefully; these decide the coach's next move:
 - emotionalIntensity: 0 none; 1 mild or described calmly ("work feels pointless", "I'm stuck", "I'm worried"); 2 clearly upset in the moment (strong language, exclamations, "I'm furious", "I can't stand it"); 3 overwhelmed or distressed. Most messages are 0 or 1.
 - intent "vent": only when they are unloading about events or people and mainly want to be heard. Describing a problem, a pattern or a fear is "share".
@@ -103,8 +104,10 @@ export function detectCrisis(text: string): boolean {
 
 const ADVICE = /\b(what should i|should i\b|what do i do|what would you do|tell me what to do|give me (some )?(advice|tips|steps)|any (advice|tips)|how (do|can|should) i\b|what('s| is) the best way)/i;
 const IDEAS = /\b(any ideas|ideas (for|on|about)|give me (some )?ideas|brainstorm|what are (some|my) options|help me (think of|come up with)|ways (to|i could))\b/i;
-const CRITIC = /\b(i'?m (just |so )?(not (good|smart|clever|talented|strong|brave) enough|stupid|useless|a fraud|an idiot|pathetic|terrible at \w+|bad at \w+)|i'?ll (sound|look) (stupid|like an idiot|dumb)|who am i to|i always (mess|screw|fuck) (it|things|everything) up|i'?ll never be (good|enough|able))/i;
+const CRITIC = /\b(i'?m (just |so )?(not (good|smart|clever|talented|strong|brave) enough|stupid|useless|a fraud|an idiot|pathetic|terrible at \w+|bad at \w+)|i'?ll (sound|look|feel) (so |really )?(stupid|like an idiot|like a failure|dumb|embarrassed|humiliated)|(feel|look) stupid for|i'?m not the (academic|smart|clever|sporty|creative) one|who am i to|i always (mess|screw|fuck) (it|things|everything) up|i'?ll never be (good|enough|able))/i;
 const ONE_WAY = /\b(the only (way|option|choice)|no other (way|option|choice)|i (either|have to either)\b.*\bor\b|there'?s no (other )?way (out|round|around))/i;
+/** Talking to or about the coach itself ("you keep asking", "can you be…", "I'd like you to…"). */
+const ABOUT_COACHING = /\b(you (keep|always|never)|can you|could you|i'?d (like|prefer|rather) (you|it if you)|i want you to|i need you to|your (questions|replies|style)|coach(ing)? me)\b/i;
 const ALLIANCE = /\b(be (more |a bit more )?(direct|blunt|honest|gentle|gentler|tough|tougher|harsh|harder) (with|on) me|(don'?t|stop) (sugar-?coat|being so (soft|nice)|asking so many questions)|push me|challenge me|call me out|less questions|fewer questions|just listen)\b/i;
 const CLOSING = /^\s*(ok(ay)?[,.]?\s+)?(thanks|thank you|cheers|ta)\b.*\b(go|later|bye|tomorrow|night|helpful|enough|for now)\b|^\s*(i (have|need|got) to go|gotta go|got to go|talk (later|soon|tomorrow)|bye|good ?night)\b/i;
 const WHEN = /\b(today|tonight|tomorrow|this (morning|afternoon|evening|week|weekend)|next week|on (monday|tuesday|wednesday|thursday|friday|saturday|sunday)|(monday|tuesday|wednesday|thursday|friday|saturday|sunday)|by \w+|before \w+)\b/i;
@@ -125,7 +128,8 @@ function recurringTheme(text: string, history: CoachContextData['history']): str
   const [word, n] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
   return n >= 3 ? `"${word}" keeps coming up` : null;
 }
-const COMMIT = /\b(i('ll| will)|i'm going to|i am going to|i commit|my plan is to|tomorrow i|this week i)\b/i;
+// "I'll feel stupid" is a fear, not a plan: the verb after "I'll" must be something they'd do.
+const COMMIT = /\b(i('ll| will)|i'm going to|i am going to|i commit|my plan is to|tomorrow i|this week i)\b(?!\s+(probably |just |only |always |never |still )?(feel|be|look|sound|seem|get|end up|fail|lose|mess|never|regret|hate|panic|freeze|cry|worry)\b)/i;
 const INSIGHT = /\b(i (just )?(realis|realiz)e|oh[,.!]? (i|so)|i think i('ve| have) (just )?(seen|noticed|got it)|i never (noticed|saw|thought)|that's it[.!]|actually,? (it'?s|i'?m) (not|really))/i;
 const RESIST = /\b(doesn'?t (really )?work|won'?t work|pointless|waste of time|stop asking|just answer|you don'?t get it|not helpful|i don'?t want to talk about)/i;
 const PROGRESS = /\b(i did it|i (finally )?(did|finished|completed|managed|went|sent|applied|submitted)|i didn'?t (do|manage|go|get)|update:|so i (did|tried))\b/i;
@@ -336,6 +340,34 @@ function readStage(v: unknown, d: CoachingStage): CoachingStage {
   if (!STAGES.includes(v as CoachingStage)) return d;
   const early = v === 'opening' || v === 'exploring' || v === 'awareness';
   return d === 'wants' && early ? 'wants' : (v as CoachingStage);
+}
+
+const STOP = new Set(['that', 'this', 'with', 'they', 'them', 'then', 'will', 'just', 'have', 'been', 'from', 'what', 'when', 'your', 'about', 'feel', 'really', 'because', 'would', 'could', 'there', 'their', 'into', 'like']);
+/** Significant words, lower-cased, apostrophes normalised. */
+export function contentWords(s: string): string[] {
+  return (s.toLowerCase().replace(/[‘’]/g, "'").match(/[a-z']{4,}/g) ?? []).filter((w) => !STOP.has(w));
+}
+
+/** True when most of a phrase's significant words appear in the text. */
+function groundedIn(phrase: string, text: string): boolean {
+  const words = contentWords(phrase);
+  if (words.length === 0) return true;
+  const have = new Set(contentWords(text));
+  return words.filter((w) => have.has(w)).length / words.length >= 0.5;
+}
+
+/**
+ * The inner critic and assumptions must come from the latest message. Models tend to
+ * re-flag things from earlier sessions, and the coach then quotes words they never said today.
+ */
+export function groundInLatest(a: TurnAnalysis, text: string): TurnAnalysis {
+  return {
+    ...a,
+    innerCritic: a.innerCritic && groundedIn(a.innerCritic, text) ? a.innerCritic : null,
+    assumptions: a.assumptions.filter((x) => groundedIn(x, text)),
+    // A note about how to coach them needs them to be talking about the coaching.
+    allianceNote: a.allianceNote && (ALLIANCE.test(text) || ABOUT_COACHING.test(text)) ? a.allianceNote : null,
+  };
 }
 
 /** A string field the model may leave null; a missing field keeps the fallback. */

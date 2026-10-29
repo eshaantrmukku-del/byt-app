@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { heuristicAnalysis } from '../../src/engine/analysis.js';
+import { groundInLatest, heuristicAnalysis } from '../../src/engine/analysis.js';
 import { buildContextBlock } from '../../src/engine/context.js';
 import { SKILLS } from '../../src/engine/framework.js';
 import { checkReply, hasBlocking } from '../../src/engine/guard.js';
@@ -223,7 +223,8 @@ describe('pacing (from real Groq conversations)', () => {
     const check = (reply: string, p: MovePlan, coachTexts: string[]) =>
       checkReply({ reply, plan: p, channel: 'text', profile, userTexts: ['x'], coachTexts }).filter((i) => i.severity === 'block').map((i) => i.check);
     expect(check('That fear of a no is doing a lot of steering. What else?', { ...plan('reflect_and_deepen'), maxQuestions: 0 }, [])).toContain('questions');
-    expect(check('That fear of a no is doing a lot of steering.', { ...plan('reflect_and_deepen'), maxQuestions: 0 }, [])).toEqual([]);
+    expect(check("That fear of a no is doing a lot of steering. I'd be curious where it first came from.", { ...plan('reflect_and_deepen'), maxQuestions: 0 }, [])).toEqual([]);
+    expect(check('That fear of a no is doing a lot of steering.', { ...plan('reflect_and_deepen'), maxQuestions: 0 }, [])).toContain('no-invitation');
     expect(check('It sounds like money and meaning are pulling apart. What matters most?', plan('reflect_and_deepen'), ['It sounds like work is draining.'])).toContain('repetition');
     expect(check('Money and meaning are pulling apart. Which one is louder lately?', plan('reflect_and_deepen'), ['It sounds like work is draining. What do you notice?'])).toEqual([]);
   });
@@ -251,6 +252,24 @@ describe('pacing (from real Groq conversations)', () => {
       checkReply({ reply, plan: plan('acknowledge_and_explore'), channel: 'text', profile, userTexts: ['x'] }).filter((i) => i.severity === 'block').map((i) => i.check);
     expect(blocks('That sounds heavy. What do you notice in your body right now?')).toContain('body');
     expect(blocks('Notice what comes up when the deadline feels near.')).toContain('instructing');
+    expect(blocks('That fear makes sense. Maybe you could choose one very small action, like writing the first sentence.')).toContain('suggesting');
+    expect(blocks('Weeks of it sitting there. I wonder what would feel different if you took one small step.')).toContain('premature-action');
+  });
+
+  it("only flags what's in the latest message, and never uses unsaid things as proof", () => {
+    const stale = makeAnalysis({ innerCritic: "I'll feel stupid for trying", assumptions: ["they'll say no"] });
+    const grounded = groundInLatest(stale, "I keep putting off applying for the course. It's been weeks.");
+    expect(grounded.innerCritic).toBeNull();
+    expect(grounded.assumptions).toEqual([]);
+    expect(groundInLatest(makeAnalysis({ allianceNote: 'gentler' }), "My dad always said I wasn't the academic one.").allianceNote).toBeNull();
+    expect(groundInLatest(makeAnalysis({ allianceNote: 'fewer questions' }), 'Can you ask fewer questions please').allianceNote).toBe('fewer questions');
+    expect(groundInLatest(stale, "I'm scared I'll feel stupid for trying").innerCritic).toBe("I'll feel stupid for trying");
+    const profile = makeContext().profile;
+    const blocks = (reply: string, userTexts: string[]) =>
+      checkReply({ reply, plan: plan('name_inner_critic'), channel: 'text', profile, userTexts }).filter((i) => i.severity === 'block').map((i) => i.check);
+    const said = ["My dad always said I wasn't the academic one."];
+    expect(blocks("That's an old line to carry. You've already started BYT and are pushing yourself at the gym. I'd be curious what you make of it.", said)).toContain('borrowed-evidence');
+    expect(blocks("That's an old line to carry, and it still stings. I'd be curious what you'd say back to it now.", said)).toEqual([]);
   });
 
   it('follows a stated want, steps forward when they lean in, and never challenges twice running', () => {
@@ -261,6 +280,11 @@ describe('pacing (from real Groq conversations)', () => {
     const ctx = makeContext({ history: challenged });
     expect(heuristicAnalysis("If I knew it was one form tonight, I could do that.", ctx).stage).toBe('commitment');
     expect(heuristicAnalysis('What I actually want is work that means something.', ctx).stage).toBe('wants');
+    // A fear is not a plan, even with "I'll" in it.
+    const fear = heuristicAnalysis("I think I'm scared they'll say no and then I'll feel stupid for trying.", ctx);
+    expect(fear.commitmentStated).toBe(false);
+    expect(fear.innerCritic).toBeTruthy();
+    expect(heuristicAnalysis("I'll email the admissions team on Friday.", ctx).commitmentStated).toBe(true);
   });
 });
 

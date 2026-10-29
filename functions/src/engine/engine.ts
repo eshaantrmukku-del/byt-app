@@ -1,7 +1,7 @@
 import { CONTEXT, MODELS, TIMEOUTS } from '../config.js';
 import type { GoalProgressProposal } from '../contract.js';
 import { LlmError, parseJson, type LlmClient, type LlmMessage, type ThinkingLevel } from '../llm/types.js';
-import { ANALYSIS_SCHEMA, ANALYSIS_SYSTEM, buildAnalysisPrompt, heuristicAnalysis, normaliseAnalysis } from './analysis.js';
+import { ANALYSIS_SCHEMA, ANALYSIS_SYSTEM, buildAnalysisPrompt, groundInLatest, heuristicAnalysis, normaliseAnalysis } from './analysis.js';
 import { buildContextBlock } from './context.js';
 import { checkReply, hasBlocking, sanitiseReply } from './guard.js';
 import { allianceDue, memoryDeltaFor, openCommitments } from './memory.js';
@@ -63,7 +63,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
         timeoutMs: TIMEOUTS.analysisMs,
         mockHints: { text },
       });
-      analysis = normaliseAnalysis(parseJson(res.text), fallback, goalIds, commitmentIds);
+      analysis = groundInLatest(normaliseAnalysis(parseJson(res.text), fallback, goalIds, commitmentIds), text);
       analysisSource = 'model';
       analysisMs = res.latencyMs;
       tokensIn += res.inputTokens ?? 0;

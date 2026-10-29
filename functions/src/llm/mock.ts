@@ -98,11 +98,11 @@ function coachReply(req: LlmRequest): string {
 
 /** Statements the offline coach uses when it must not ask, or must say it differently. */
 const LANDINGS = [
-  'There is more weight in that than the words let on, and it seems to be about more than this one task.',
-  'That says a lot about what matters to you here, maybe more than the plan itself.',
-  'Something shifted in how you put that, and it is worth staying with for a moment.',
-  'Part of you already knows where this is heading, even if the rest is not ready yet.',
-  'That tension between wanting it and holding back seems to be the real thing here.',
+  "There is more weight in that than the words let on, and it seems to be about more than this one task. I'd be curious what sits underneath it for you.",
+  "That says a lot about what matters to you here, maybe more than the plan itself. Take your time with that.",
+  "Something shifted in how you put that. I wonder what made it come out that way today.",
+  "Part of you already knows where this is heading, even if the rest is not ready yet. I'm here if you want to stay with it.",
+  "That tension between wanting it and holding back seems to be the real thing here. I'd be curious which side feels louder right now.",
 ];
 
 function naiveReply(req: LlmRequest): string {

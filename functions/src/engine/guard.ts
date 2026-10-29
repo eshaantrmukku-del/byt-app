@@ -1,4 +1,5 @@
 import type { Channel } from '../contract.js';
+import { contentWords } from './analysis.js';
 import type { GuardIssue, MovePlan, ProfileContext } from './types.js';
 
 const PRAISE = /^\s*(great|perfect|excellent|nice|love it)[.!,]|\b(great job|well done|amazing|incredible|fantastic|awesome|brilliant|wonderful|so proud|proud of you|great question|good question|love that|you('re| are) (doing )?(great|amazing|so brave)|that's (great|amazing|wonderful|fantastic|brilliant))\b/i;
@@ -11,7 +12,20 @@ const WHY_QUESTION = /(^|[.!?]\s+|,\s*)(but |and |so )?why\b[^.!?]*\?/i;
 const CLOSED_START = /^(do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|shall|am)\b/i;
 const LEADING = /\bhow about (you|we|committing|trying|starting|making)\b|\bhave you (considered|thought about|tried)\b|\bwhat if you (just|tried|simply)\b|\bwouldn'?t it be (better|easier|good)\b|\bdon'?t you think\b|\bisn'?t it (possible|true) that\b/i;
 /** A statement that opens with an instruction ("Decide…", "Write it down…"). */
-const IMPERATIVE = /(^|,\s*)(decide|write|note|notice|jot|try|make|start|set|commit|plan|pick|choose|schedule|block|take|focus|remember|keep|stop|go|get|put|list|prepare|practise|practice|aim)\b/i;
+const IMPERATIVE = /(^|,\s*)(decide|write|note|notice|jot|try|make|start|set|commit|plan|pick|choose|schedule|block|take(?! your time)|focus|remember|keep|stop|go|get|put|list|prepare|practise|practice|aim)\b/i;
+/** Using what they've done as proof of what they can do ("you've already shown…"). */
+const EVIDENCE = /\b(you'?ve (already )?(shown|proven|proved|demonstrated|started|built|done|managed|kept)|you already (have|do|did)|(proves?|shows?) (that )?you can|evidence that you|i can see you (have|'?ve|are))\b/i;
+/** A statement that still invites them to go on, so a reply without a question isn't a dead end. */
+const OPENING = /\b(curious|wonder|if you('d)? (want|like)|tell me|i'?m here|happy to|we can|no rush|take your time|stay with|say more|hear more|whenever you|feel free|open to)\b/i;
+const NEEDS_OPENING = new Set(['reflect_and_deepen', 'acknowledge_and_explore', 'name_inner_critic', 'deepen_insight', 'explore_perspectives', 'bottom_line', 'challenge_assumption', 'acknowledge']);
+/** A plan suggested to them ("Maybe you could choose one small action, like…"). */
+const SUGGESTING = /\b(maybe|perhaps) you could\b|\byou could (try|choose|start|write|pick|set|decide|make|begin|send|book|schedule)\b|\bwhy not (try|just)\b/i;
+/** Talk of steps while they're still exploring or feeling it. */
+const STEP_TALK = /\b(small|tiny|little|first|next|one) (step|action)s?\b/i;
+const EXPLORING_MOVES = new Set([
+  'reflect_and_deepen', 'acknowledge_and_explore', 'clearing', 'name_inner_critic', 'bottom_line', 'explore_values',
+  'explore_perspectives', 'offer_intuition', 'powerful_question', 'challenge_assumption', 'name_contradiction', 'explore_resistance',
+]);
 /** Questions about bodily sensations read as therapy-speak in an app; feelings are asked about directly. */
 const BODY = /\b(in|through) your body\b|\bbodily\b|\bphysical sensations?\b/i;
 const SOLVING = /\b(here are (some|a few)|here'?s (what|how) (to|you)|the (key|trick|secret) (is|here)|my advice|a (good|great) (tip|strategy|approach) (is|would be)|(start|try) (by|with) (making|writing|breaking|setting))\b/i;
@@ -92,7 +106,9 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   } else if (q > maxQ) {
     issues.push({ check: 'questions', severity: 'warn', detail: `Asks ${q} questions; one is usually better.` });
   }
-  if (q === 0 && !safety && plan.maxQuestions > 0) {
+  if (q === 0 && !safety && NEEDS_OPENING.has(plan.primary) && !OPENING.test(reply)) {
+    issues.push({ check: 'no-invitation', severity: 'block', detail: 'Ends without a question or an opening, so the conversation stalls. Leave a gentle door open ("I\'d be curious…", "Take your time with that…").' });
+  } else if (q === 0 && !safety && plan.maxQuestions > 0 && !OPENING.test(reply)) {
     issues.push({ check: 'no-invitation', severity: 'warn', detail: 'No question or invitation; the conversation may stall.' });
   }
 
@@ -107,7 +123,7 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   const said = input.userTexts.join(' ').toLowerCase();
   const lowerReply = reply.toLowerCase();
   const echoed = profilePhrases(input.profile).filter((ph) => lowerReply.includes(ph) && !said.includes(ph));
-  if (echoed.length >= 2 || (echoed.length === 1 && plan.primary === 'open_session')) {
+  if (echoed.length >= 2 || (echoed.length === 1 && (plan.primary === 'open_session' || EVIDENCE.test(reply)))) {
     issues.push({ check: 'profile-recital', severity: 'block', detail: `Recites profile details they didn't bring up ("${echoed[0]}"). Use background quietly.` });
   }
 
@@ -128,6 +144,21 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   }
   if (!safety && COMPOUND_QUESTION.test(reply)) {
     issues.push({ check: 'questions', severity: 'block', detail: 'Joins two questions with "and". Ask just the one that matters most.' });
+  }
+  if (!safety && !ADVISING_MOVES.has(plan.primary) && plan.primary !== 'make_request' && SUGGESTING.test(reply)) {
+    issues.push({ check: 'suggesting', severity: 'block', detail: 'Suggests what they could do. Help them find their own next step instead.' });
+  }
+  if (EXPLORING_MOVES.has(plan.primary) && STEP_TALK.test(reply)) {
+    issues.push({ check: 'premature-action', severity: 'block', detail: "Pushes towards a step while they're still exploring. Stay with what they're telling you." });
+  }
+  // "You've already started BYT and keep up the gym" about things they didn't say here: borrowed evidence.
+  const evidence = reply.split(/(?<=[.!?])\s+/).find((x) => EVIDENCE.test(x));
+  if (!safety && evidence) {
+    const heard = new Set(contentWords(input.userTexts.join(' ')));
+    const borrowed = contentWords(evidence.replace(EVIDENCE, '')).filter((w) => !heard.has(w));
+    if (borrowed.length >= 2) {
+      issues.push({ check: 'borrowed-evidence', severity: 'block', detail: `Uses things they didn't say here as proof of what they can do ("${evidence.slice(0, 60)}"). Only use what they told you in this conversation.` });
+    }
   }
   if (!safety && BODY.test(reply)) {
     issues.push({ check: 'body', severity: 'block', detail: 'Asks about bodily sensations. Talk about how it feels or what it means to them instead.' });
