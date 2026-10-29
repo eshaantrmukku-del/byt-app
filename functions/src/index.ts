@@ -13,6 +13,7 @@ import { MockLlm } from './llm/mock.js';
 import type { LlmClient } from './llm/types.js';
 import { handleCoachTurn, handleGetAccount, handleVoiceAudio, handleVoiceTurn, type TurnDeps } from './turn/handlers.js';
 import { GeminiVoice } from './voice/gemini.js';
+import { GroqVoice } from './voice/groq.js';
 import { MockVoice } from './voice/mock.js';
 import type { VoiceProvider } from './voice/types.js';
 
@@ -38,7 +39,8 @@ function llm(): LlmClient {
 }
 
 function voice(): VoiceProvider {
-  if (MOCK || GROQ) return (geminiVoice ??= new MockVoice({ playable: true }));
+  if (GROQ) return (geminiVoice ??= new GroqVoice(process.env.GROQ_API_KEY ?? ''));
+  if (MOCK) return (geminiVoice ??= new MockVoice({ playable: true }));
   const key = GEMINI_API_KEY.value();
   if (!key) throw new CoachError('not-configured');
   return (geminiVoice ??= new GeminiVoice(key));
