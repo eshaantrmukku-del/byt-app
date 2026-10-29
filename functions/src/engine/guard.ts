@@ -58,6 +58,8 @@ export type GuardInput = {
 const FORMULAS = ['it sounds like', 'what do you notice', 'what else', "you're noticing", 'i hear', "what's coming up", 'what is coming up', 'what does that', 'in your body'];
 /** Openings that all mirror them back the same way ("You're noticing…", "You sense…", "It sounds like…"). */
 const MIRROR_OPENING = /^(it sounds like|it seems|i hear|i'm hearing|you('re| are) (\w+ing|holding|caught)|you (sense|seem|feel)\b)/;
+/** Two questions joined into one ("What would that look like, and how would you feel?"). */
+const COMPOUND_QUESTION = /[,—–-]\s*and (what|how|when|by when|who|where|which)(\s+[^\s?.!]+){4,}\s*\?/i;
 const norm = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim();
 const opener = (s: string) => norm(s).split(' ').slice(0, 3).join(' ');
 
@@ -116,6 +118,14 @@ export function checkReply(input: GuardInput): GuardIssue[] {
     if (sameOpening || reused) {
       issues.push({ check: 'repetition', severity: 'block', detail: `Repeats ${reused ? `"${reused}"` : 'the opening'} from a recent reply. Say it differently.` });
     }
+  }
+  // One mirror is a reflection; two in a row inside one reply is a template.
+  const mirrors = reply.split(/(?<=[.!?])\s+/).filter((x) => MIRROR_OPENING.test(norm(x))).length;
+  if (!safety && mirrors >= 2) {
+    issues.push({ check: 'repetition', severity: 'block', detail: 'Mirrors them twice in one reply ("You\'re sensing… It sounds like…"). Reflect once, then add something new.' });
+  }
+  if (!safety && COMPOUND_QUESTION.test(reply)) {
+    issues.push({ check: 'questions', severity: 'block', detail: 'Joins two questions with "and". Ask just the one that matters most.' });
   }
   if (!safety && WHY_QUESTION.test(reply)) {
     issues.push({ check: 'why-question', severity: 'block', detail: 'Asks "why", which invites defending. Ask "what" or "how" instead.' });

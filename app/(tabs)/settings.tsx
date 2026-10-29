@@ -26,6 +26,7 @@ import { toCoachError } from '@/services/coach/errors';
 import { currentAccount, percentLeft, resetLabel } from '@/features/usage/usage';
 import type { CoachThinking } from '@/services/coach/types';
 import { usePreferencesStore, type PreferenceKey } from '@/stores/preferencesStore';
+import { requestNotificationPermission } from '@/services/notifications';
 import { useProfileStore } from '@/stores/profileStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useUsageStore } from '@/stores/usageStore';
@@ -68,20 +69,73 @@ function ThinkingPicker() {
   );
 }
 
-function ToggleRow({ icon: Icon, label, prefKey }: { icon: LucideIcon; label: string; prefKey: PreferenceKey }) {
+const REMINDER_HOURS: { hour: number; label: string }[] = [
+  { hour: 8, label: '8 am' },
+  { hour: 12, label: '12 pm' },
+  { hour: 18, label: '6 pm' },
+  { hour: 20, label: '8 pm' },
+];
+
+function ReminderTimePicker() {
+  const value = usePreferencesStore((s) => s.reminderHour);
+  const setValue = usePreferencesStore((s) => s.setReminderHour);
+  return (
+    <View style={styles.reminderTimes}>
+      <View style={styles.segment} accessibilityRole="radiogroup" accessibilityLabel="Check-in reminder time">
+        {REMINDER_HOURS.map((option) => {
+          const active = option.hour === value;
+          return (
+            <TouchableOpacity
+              key={option.hour}
+              style={[styles.segmentItem, active && styles.segmentItemActive]}
+              onPress={() => setValue(option.hour)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={option.label}
+            >
+              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{option.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <Text style={styles.segmentHint}>Skipped on days you’ve already checked in.</Text>
+    </View>
+  );
+}
+
+/** Notification toggles need the system permission; ask when one is switched on. */
+async function enableNotifications(): Promise<boolean> {
+  const status = await requestNotificationPermission();
+  if (status === 'granted') return true;
+  Alert.alert('Notifications are off for BYT', 'To get reminders, allow notifications for BYT in your phone’s settings.', [
+    { text: 'Not now', style: 'cancel' },
+    { text: 'Open settings', onPress: () => void Linking.openSettings() },
+  ]);
+  return false;
+}
+
+function ToggleRow(props: { icon: LucideIcon; label: string; hint?: string; prefKey: PreferenceKey; notification?: boolean }) {
+  const { icon: Icon, label, hint, prefKey, notification } = props;
   const value = usePreferencesStore((s) => s[prefKey]);
   const set = usePreferencesStore((s) => s.set);
+  const onChange = (next: boolean) => {
+    if (!next || !notification || Platform.OS === 'web') return set(prefKey, next);
+    void enableNotifications().then((ok) => ok && set(prefKey, true));
+  };
   return (
     <View style={styles.settingRow}>
-      <View style={styles.settingLabelContainer}>
+      <View style={[styles.settingLabelContainer, styles.flex]}>
         <View style={styles.iconBox}>
           <Icon size={20} color={theme.primary} />
         </View>
-        <Text style={styles.settingLabelText}>{label}</Text>
+        <View style={styles.flex}>
+          <Text style={styles.settingLabelText}>{label}</Text>
+          {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+        </View>
       </View>
       <Switch
         value={value}
-        onValueChange={(v) => set(prefKey, v)}
+        onValueChange={onChange}
         trackColor={{ false: theme.surfaceElevated, true: theme.primary }}
         thumbColor="#FFF"
         ios_backgroundColor={theme.surfaceElevated}
@@ -113,6 +167,7 @@ export default function SettingsScreen() {
   const profile = useProfileStore((s) => s.profile);
   const account = currentAccount(useUsageStore((s) => s.account));
   const syncError = useSyncStore((s) => s.lastError);
+  const checkInReminders = usePreferencesStore((s) => s.pushNotifications);
 
   const [deleting, setDeleting] = useState(false);
   const left = percentLeft(account);
@@ -169,8 +224,19 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>PREFERENCES</Text>
           <ToggleRow icon={Mic} label="Voice Interaction" prefKey="voiceInteraction" />
-          <ToggleRow icon={Sparkles} label="Smart Nudges" prefKey="smartNudges" />
-          <ToggleRow icon={Bell} label="Push Notifications" prefKey="pushNotifications" />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>REMINDERS</Text>
+          <ToggleRow icon={Bell} label="Daily check-in reminder" prefKey="pushNotifications" notification />
+          {checkInReminders ? <ReminderTimePicker /> : null}
+          <ToggleRow
+            icon={Sparkles}
+            label="Coach nudges"
+            hint="On the day you said you’d do something, and a follow-up after"
+            prefKey="smartNudges"
+            notification
+          />
         </View>
 
         <View style={styles.section}>
@@ -295,6 +361,7 @@ const styles = StyleSheet.create({
   segmentItemActive: { backgroundColor: theme.primary },
   segmentText: { fontSize: 14, fontWeight: '600', color: theme.textSecondary },
   segmentTextActive: { color: '#FFF' },
+  reminderTimes: { marginTop: 4, marginBottom: 16 },
   segmentHint: { fontSize: 12, color: theme.textSecondary, marginTop: 10, lineHeight: 18 },
   subscriptionCard: { backgroundColor: theme.card, borderRadius: 24, padding: 24, borderWidth: 1, borderColor: theme.border },
   subHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 },

@@ -54,7 +54,14 @@
           "microphonePermission": "BYT uses the microphone so you can talk with your coach."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#3B82F6"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

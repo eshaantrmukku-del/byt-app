@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 
 import { friendlyError, isPermissionDenied } from '@/features/auth/authErrors';
+import { parseCommitments } from '@/features/notifications/plan';
 import { parseCheckIn, parseConversation, parseGoal, parseJournalEntry } from '@/features/parse';
 import { parseAccountDoc } from '@/features/usage/usage';
 import { legacyChats, legacyCheckIns, legacyGoals, legacyJournal } from '@/features/profile/legacyAccount';
@@ -18,6 +19,7 @@ import { requireFirebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
 import { coachClient } from '@/services/coach/coachClient';
 import { useChatStore } from '@/stores/chatStore';
+import { useCoachMemoryStore } from '@/stores/coachMemoryStore';
 import { useUsageStore } from '@/stores/usageStore';
 import { useUserDataStore, type CollectionKey } from '@/stores/userDataStore';
 
@@ -133,6 +135,12 @@ export function watchUserData(uid: string): () => void {
         if (parsed) useUsageStore.getState().setAccount(parsed);
       },
       // Rules that aren't deployed yet deny private/account; the default allowance shows.
+      () => undefined
+    ),
+    // Commitments the coach recorded, for reminders. Missing until the first one is made.
+    onSnapshot(
+      doc(requireFirebase().db, 'users', uid, 'private', 'coach'),
+      (snap) => useCoachMemoryStore.getState().setCommitments(parseCommitments(snap.data())),
       () => undefined
     ),
   ];

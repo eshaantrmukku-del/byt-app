@@ -8,6 +8,7 @@ import { firebase } from '@/lib/firebase';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useCoachMemoryStore } from '@/stores/coachMemoryStore';
 import { useUsageStore } from '@/stores/usageStore';
 import { useSyncStore } from '@/stores/syncStore';
 import { useUserDataStore } from '@/stores/userDataStore';
@@ -114,6 +115,7 @@ export function clearUserState() {
   useUsageStore.getState().reset();
   useChatStore.getState().reset();
   useSyncStore.getState().reset();
+  useCoachMemoryStore.getState().reset();
 }
 
 /** Re-subscribes to the profile after an error (the old listener is dead by then). */

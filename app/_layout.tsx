@@ -1,9 +1,10 @@
 import { Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useGate } from '@/features/session/useGate';
+import { consumePendingNotification, startNotifications } from '@/services/notifications';
 import { startSession } from '@/services/session';
 import { colors, navigationTheme } from '@/ui';
 
@@ -12,6 +13,13 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 export default function RootLayout() {
   useEffect(() => startSession(), []);
   const gate = useGate();
+  const ready = useRef(false);
+  // A tapped reminder opens its screen as soon as the signed-in app is showing.
+  useEffect(() => startNotifications(() => ready.current && consumePendingNotification()), []);
+  useEffect(() => {
+    ready.current = gate === 'ready';
+    if (ready.current) consumePendingNotification();
+  }, [gate]);
 
   return (
     <ThemeProvider value={navigationTheme}>

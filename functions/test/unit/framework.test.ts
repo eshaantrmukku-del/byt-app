@@ -235,6 +235,9 @@ describe('pacing (from real Groq conversations)', () => {
     expect(blocks("You're seeing the money as a safety net. What would meaning look like?", ["You're noticing a gap between pay and purpose."])).toContain('repetition');
     expect(blocks('The money is a safety net, and something else is calling. What would meaning look like?', ["You're noticing a gap between pay and purpose."])).toEqual([]);
     expect(blocks('What do you notice in your body when the form opens?', ['Something stops you. What do you feel in your body?'])).toContain('repetition');
+    expect(blocks("You're sensing the work doesn't fit. It sounds like purpose is missing. What used to spark you?", [])).toContain('repetition');
+    expect(blocks('Meaning matters more than pay now. What would a good day look like, and how different would you feel from today?', [])).toContain('questions');
+    expect(blocks('Meaning matters more than pay now. What would a good day there look like?', [])).toEqual([]);
   });
 
   it('follows a stated want, steps forward when they lean in, and never challenges twice running', () => {
