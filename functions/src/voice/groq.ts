@@ -15,6 +15,8 @@ const TTS_MODEL = process.env.BYT_GROQ_TTS_MODEL || 'canopylabs/orpheus-v1-engli
 const TTS_VOICE = process.env.BYT_GROQ_VOICE || 'troy';
 /** Orpheus reads short inputs; longer replies are spoken a sentence group at a time. */
 const TTS_CHUNK_CHARS = 200;
+/** After Orpheus refuses (terms not yet accepted), try it again after this long. */
+const ORPHEUS_RETRY_MS = 60_000;
 
 const EXTENSIONS: Record<string, string> = { 'audio/m4a': 'm4a', 'audio/mp4': 'm4a', 'audio/aac': 'm4a', 'audio/wav': 'wav', 'audio/webm': 'webm', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg' };
 
@@ -25,7 +27,7 @@ const EXTENSIONS: Record<string, string> = { 'audio/m4a': 'm4a', 'audio/mp4': 'm
  */
 export class GroqVoice implements VoiceProvider {
   readonly name = 'groq';
-  private orpheusOff = false;
+  private orpheusOffUntil = 0;
 
   constructor(private readonly apiKey: string) {
     if (!apiKey) throw new VoiceError('GROQ_API_KEY is not set', 'stt');
@@ -51,7 +53,7 @@ export class GroqVoice implements VoiceProvider {
 
   async synthesize(text: string): Promise<SpeechAudio> {
     const tokens = Math.ceil(text.length / 2);
-    if (!this.orpheusOff) {
+    if (Date.now() >= this.orpheusOffUntil) {
       try {
         const parts: Buffer[] = [];
         for (const chunk of chunks(text)) parts.push(await this.orpheus(chunk));
@@ -59,7 +61,7 @@ export class GroqVoice implements VoiceProvider {
       } catch (error) {
         if (process.platform !== 'darwin') throw error;
         if (error instanceof TermsRequired) {
-          this.orpheusOff = true;
+          this.orpheusOffUntil = Date.now() + ORPHEUS_RETRY_MS;
           logger.warn('groq_tts_terms_required', { hint: 'Accept the Orpheus terms in the Groq console; using the Mac voice meanwhile.' });
         }
       }
@@ -112,9 +114,12 @@ export function chunks(text: string, max = TTS_CHUNK_CHARS): string[] {
   return out;
 }
 
-/** Concatenates WAV files that share one format into a single WAV. */
+/**
+ * Concatenates WAV files that share one format into a single WAV with correct sizes.
+ * Also used for one file: Orpheus streams its WAV with placeholder sizes, which some
+ * phone players refuse.
+ */
 export function joinWavs(files: Buffer[]): Buffer {
-  if (files.length === 1) return files[0]!;
   let fmt: Buffer | null = null;
   const pcm: Buffer[] = [];
   for (const file of files) {

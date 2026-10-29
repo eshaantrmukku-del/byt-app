@@ -240,6 +240,19 @@ describe('pacing (from real Groq conversations)', () => {
     expect(blocks('Meaning matters more than pay now. What would a good day there look like?', [])).toEqual([]);
   });
 
+  it('never asks two questions in a row on reflective turns, and never asks about the body', () => {
+    const afterQuestion = selectMoves(makeAnalysis(), [user('a'), coach('What matters here?', 'reflect_and_deepen')], 'text');
+    expect(afterQuestion.primary).toBe('reflect_and_deepen');
+    expect(afterQuestion.maxQuestions).toBe(0);
+    const afterStatement = selectMoves(makeAnalysis(), [user('a'), coach('That sounds hard.', 'reflect_and_deepen')], 'text');
+    expect(afterStatement.maxQuestions).toBe(1);
+    const profile = makeContext().profile;
+    const blocks = (reply: string) =>
+      checkReply({ reply, plan: plan('acknowledge_and_explore'), channel: 'text', profile, userTexts: ['x'] }).filter((i) => i.severity === 'block').map((i) => i.check);
+    expect(blocks('That sounds heavy. What do you notice in your body right now?')).toContain('body');
+    expect(blocks('Notice what comes up when the deadline feels near.')).toContain('instructing');
+  });
+
   it('follows a stated want, steps forward when they lean in, and never challenges twice running', () => {
     const challenged = [user('a'), coach('You sound certain. What do you actually know?', 'challenge_assumption')];
     expect(selectMoves(makeAnalysis({ stage: 'wants', assumptions: ['it pays less'] }), challenged, 'text').primary).toBe('clarify_want');

@@ -33,7 +33,10 @@ function questionStreak(history: readonly HistoryMessage[]): number {
 }
 
 /** Moves that can land as a statement; after a run of questions they must. */
-const CAN_LAND_WITHOUT_QUESTION = new Set<Move>(['reflect_and_deepen', 'acknowledge_and_explore', 'deepen_insight', 'acknowledge', 'clearing']);
+const CAN_LAND_WITHOUT_QUESTION = new Set<Move>([
+  'reflect_and_deepen', 'acknowledge_and_explore', 'deepen_insight', 'acknowledge', 'clearing',
+  'name_inner_critic', 'explore_perspectives', 'bottom_line', 'challenge_assumption',
+]);
 /** Exploring moves that shouldn't run three times in a row. */
 const EXPLORING = new Set<Move>(['reflect_and_deepen', 'acknowledge_and_explore', 'clearing', 'powerful_question']);
 
@@ -63,8 +66,8 @@ export function selectMoves(a: TurnAnalysis, history: readonly HistoryMessage[],
     why,
   });
   const chosen = choose();
-  // After two questions in a row, let a reflective reply land as a statement.
-  if (CAN_LAND_WITHOUT_QUESTION.has(chosen.primary) && questionStreak(history) >= 2) return { ...chosen, maxQuestions: 0, why: `${chosen.why}; no question after a run of them` };
+  // After a question, let a reflective reply land as a statement, so it never feels like an interview.
+  if (CAN_LAND_WITHOUT_QUESTION.has(chosen.primary) && questionStreak(history) >= 1) return { ...chosen, maxQuestions: 0, why: `${chosen.why}; no question straight after one` };
   return chosen;
 
   function choose(): MovePlan {

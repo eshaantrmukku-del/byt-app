@@ -11,7 +11,9 @@ const WHY_QUESTION = /(^|[.!?]\s+|,\s*)(but |and |so )?why\b[^.!?]*\?/i;
 const CLOSED_START = /^(do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|shall|am)\b/i;
 const LEADING = /\bhow about (you|we|committing|trying|starting|making)\b|\bhave you (considered|thought about|tried)\b|\bwhat if you (just|tried|simply)\b|\bwouldn'?t it be (better|easier|good)\b|\bdon'?t you think\b|\bisn'?t it (possible|true) that\b/i;
 /** A statement that opens with an instruction ("Decide…", "Write it down…"). */
-const IMPERATIVE = /(^|,\s*)(decide|write|note|jot|try|make|start|set|commit|plan|pick|choose|schedule|block|take|focus|remember|keep|stop|go|get|put|list|prepare|practise|practice|aim)\b/i;
+const IMPERATIVE = /(^|,\s*)(decide|write|note|notice|jot|try|make|start|set|commit|plan|pick|choose|schedule|block|take|focus|remember|keep|stop|go|get|put|list|prepare|practise|practice|aim)\b/i;
+/** Questions about bodily sensations read as therapy-speak in an app; feelings are asked about directly. */
+const BODY = /\b(in|through) your body\b|\bbodily\b|\bphysical sensations?\b/i;
 const SOLVING = /\b(here are (some|a few)|here'?s (what|how) (to|you)|the (key|trick|secret) (is|here)|my advice|a (good|great) (tip|strategy|approach) (is|would be)|(start|try) (by|with) (making|writing|breaking|setting))\b/i;
 const TENTATIVE = /\b(hunch|i wonder|might be (off|wrong)|could be (off|wrong)|may be (off|wrong)|just a sense|i'?m (sensing|noticing)|i notice|does (that|this|it) (fit|land|ring true|sound right)|take it or leave it|not quite)\b/i;
 const ROOM_TO_DECLINE = /\b(say no|yes,? no|counter[- ]?offer|your call|up to you|turn (it|me) down)\b/i;
@@ -126,6 +128,9 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   }
   if (!safety && COMPOUND_QUESTION.test(reply)) {
     issues.push({ check: 'questions', severity: 'block', detail: 'Joins two questions with "and". Ask just the one that matters most.' });
+  }
+  if (!safety && BODY.test(reply)) {
+    issues.push({ check: 'body', severity: 'block', detail: 'Asks about bodily sensations. Talk about how it feels or what it means to them instead.' });
   }
   if (!safety && WHY_QUESTION.test(reply)) {
     issues.push({ check: 'why-question', severity: 'block', detail: 'Asks "why", which invites defending. Ask "what" or "how" instead.' });

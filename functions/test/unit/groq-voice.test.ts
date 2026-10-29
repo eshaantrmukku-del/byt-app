@@ -38,4 +38,13 @@ describe('Groq voice helpers', () => {
     expect([0, 1, 2, 3, 4].map((i) => joined.readInt16LE(44 + i * 2))).toEqual([1, 2, 3, 4, 5]);
     expect(joined.readUInt32LE(4)).toBe(joined.length - 8);
   });
+
+  it('repairs a streamed WAV whose sizes are placeholders', () => {
+    const streamed = wav([7, 8, 9]);
+    streamed.writeUInt32LE(0xffffffff, 4);
+    streamed.writeUInt32LE(0xffffffff, 40);
+    const fixed = joinWavs([streamed]);
+    expect(fixed.readUInt32LE(4)).toBe(fixed.length - 8);
+    expect(fixed.readUInt32LE(40)).toBe(6);
+  });
 });

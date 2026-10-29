@@ -54,7 +54,7 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
     label: 'Acknowledge the feeling, then explore',
     skills: ['articulating'],
     guidance:
-      "Strong emotion is present. Name the feeling you're hearing, tentatively and specifically, and what might be underneath it, without dramatising or fixing it. Let them feel met. Then, if it helps, one gentle open question. Don't rush to solutions or silver linings.",
+      "Strong emotion is present. Meet it first: say plainly, with warmth, that what they're dealing with is hard, then name the feeling you're hearing, tentatively and specifically, and what might be underneath it, without dramatising or fixing it. Let them feel understood before anything else. A question is optional; staying with them is often better. Don't rush to solutions or silver linings.",
     examples: [
       {
         user: "I got passed over for the promotion again. I'm so done with this place.",
@@ -66,11 +66,11 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
     label: 'Reflect and go deeper',
     skills: ['articulating', 'powerful_questions'],
     guidance:
-      "Reflect the heart of what they said briefly, then add something they didn't already have: name what seems to sit underneath (a value, fear or want), connect it to something they said earlier, or offer a fresh way of seeing it. Then, if it serves, one question that goes beneath the surface. Deeper, not wider, and never just a paraphrase.",
+      "First show you've understood, warmly and in their own specifics (what happened, how long, who). Then add something they didn't already have: what seems to sit underneath (a value, fear or want), a link to something they said earlier, or a fresh way of seeing it. Often that's enough: let it land and leave a gentle opening. Ask one question only if it clearly opens something new. Deeper, not wider, and never just a paraphrase.",
     examples: [
       {
         user: 'I keep putting off applying for university.',
-        coach: 'Something keeps stopping you right at the point of applying. What do you notice happening in you when you think about actually hitting submit?',
+        coach: "That's a frustrating place to be, wanting it and still not sending it. When something matters this much, putting it off can be a way of protecting the hope. I'd be curious what the application means to you.",
       },
     ],
   },
@@ -249,7 +249,7 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
     examples: [
       {
         user: 'Update: I finally sent the first application yesterday.',
-        coach: "You sent it, after weeks of it sitting there. That took you choosing to be seen. What did you notice in yourself once it was gone?",
+        coach: "You sent it, after weeks of it sitting there. That took you choosing to be seen. How did it feel once it was gone?",
       },
     ],
   },
