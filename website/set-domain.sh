@@ -19,6 +19,8 @@ NEW="https://$DOMAIN/"
 FILES=(
   "$SCRIPT_DIR/index.html"
   "$SCRIPT_DIR/404.html"
+  "$SCRIPT_DIR/privacy/index.html"
+  "$SCRIPT_DIR/delete-account/index.html"
   "$SCRIPT_DIR/robots.txt"
   "$SCRIPT_DIR/sitemap.xml"
   "$SCRIPT_DIR/deploy.sh"

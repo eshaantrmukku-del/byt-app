@@ -1,179 +1,102 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Delete account - BYT</title>
-    <meta
-      name="description"
-      content="Request deletion of your BYT account and associated data."
-    />
+    <title>Delete your account - BYT</title>
+    <meta name="description" content="How to delete your BYT (Build Your Tomorrow) account and all the data linked to it." />
+    <meta name="theme-color" content="#0B1120" />
+    <link rel="icon" href="../assets/favicon.png" type="image/png" />
+    <link rel="canonical" href="https://eshaantrmukku-del.github.io/byt-website/delete-account/" />
+    <meta property="og:title" content="Delete your BYT account" />
+    <meta property="og:image" content="https://eshaantrmukku-del.github.io/byt-website/assets/og-image.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      :root {
-        --bg: #0c0f14;
-        --text: #eef2f7;
-        --muted: #94a3b8;
-        --line: rgba(148, 163, 184, 0.18);
-        --accent: #3b82f6;
-        --danger: #ef4444;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        color: var(--text);
-        font-family: Inter, system-ui, sans-serif;
-        background:
-          radial-gradient(900px 480px at 10% -10%, rgba(59, 130, 246, 0.14), transparent 55%),
-          linear-gradient(180deg, #0a0d12 0%, var(--bg) 50%, #0b1018 100%);
-        line-height: 1.65;
-      }
-
-      a {
-        color: var(--accent);
-      }
-
-      .shell {
-        width: min(100% - 2.5rem, 36rem);
-        margin: 0 auto;
-        padding: 2.75rem 0 4rem;
-      }
-
-      .brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.65rem;
-        margin-bottom: 2.25rem;
-        color: inherit;
-        text-decoration: none;
-        font-weight: 800;
-        letter-spacing: 0.04em;
-      }
-
-      h1 {
-        margin: 0 0 0.75rem;
-        font-family: Inter, system-ui, sans-serif;
-        font-size: clamp(2rem, 5vw, 2.5rem);
-        font-weight: 800;
-        letter-spacing: -0.03em;
-      }
-
-      p {
-        color: #d5dee8;
-        margin: 0 0 1rem;
-      }
-
-      .muted {
-        color: var(--muted);
-        font-size: 0.95rem;
-      }
-
-      .steps {
-        margin: 1.5rem 0 2rem;
-        padding: 1.15rem 1.25rem;
-        border: 1px solid var(--line);
-        border-radius: 1rem;
-        background: rgba(18, 23, 31, 0.65);
-      }
-
-      .steps ol {
-        margin: 0.5rem 0 0;
-        padding-left: 1.2rem;
-        color: #d5dee8;
-      }
-
-      .steps li {
-        margin: 0.45rem 0;
-      }
-
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 0.9rem 1.25rem;
-        border-radius: 0.75rem;
-        background: var(--danger);
-        color: #fff;
-        font-weight: 700;
-        text-decoration: none;
-        border: none;
-      }
-
-      .btn:hover {
-        filter: brightness(1.06);
-      }
-
-      .secondary {
-        display: inline-block;
-        margin-top: 1.25rem;
-        font-size: 0.92rem;
-      }
-
-      footer {
-        margin-top: 2.5rem;
-        padding-top: 1.15rem;
-        border-top: 1px solid var(--line);
-        color: var(--muted);
-        font-size: 0.88rem;
-      }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../assets/legal.css" />
   </head>
   <body>
-    <div class="shell">
-      <a class="brand" href="../">BYT</a>
+    <nav class="nav">
+      <div class="wrap">
+        <a class="brand" href="../"><img src="../assets/icon-512.png" alt="" width="32" height="32" />BYT</a>
+        <a class="btn small ghost" href="../privacy/">Privacy Policy</a>
+      </div>
+    </nav>
 
-      <h1>Delete your account</h1>
-      <p>
-        You can delete your BYT account and all the data linked to it (profile, goals, check-ins,
-        journal, coach conversations and the coach's notes about you).
-      </p>
+    <header class="page-head">
+      <div class="wrap">
+        <div class="eyebrow"><span class="horizon" aria-hidden="true"></span>Your data</div>
+        <h1>Delete your account</h1>
+        <p class="intro">
+          You can delete your BYT account and everything linked to it at any time. It's permanent, and it takes less than a minute.
+        </p>
+      </div>
+    </header>
 
-      <div class="steps">
-        <strong>The quickest way: in the app</strong>
-        <ol>
-          <li>Open BYT and go to Settings.</li>
-          <li>Tap “Delete account &amp; data” and confirm.</li>
-          <li>Your account and data are deleted straight away.</li>
+    <main class="wrap doc">
+      <div class="option primary">
+        <span class="option-label">Quickest</span>
+        <h2>In the app</h2>
+        <ol class="steps">
+          <li>Open BYT and go to <strong>Settings</strong>.</li>
+          <li>Scroll down and tap <strong>Delete account &amp; data</strong>.</li>
+          <li>Confirm. Your account and all its data are deleted straight away, and you're signed out.</li>
         </ol>
       </div>
 
-      <div class="steps">
-        <strong>No longer have the app? Request it by email</strong>
-        <ol>
-          <li>Tap the button below to email us from the address on your BYT account.</li>
-          <li>Keep the subject line as shown (or write “Delete my BYT account”).</li>
-          <li>We’ll verify it’s you and delete your account and associated data.</li>
+      <div class="option">
+        <span class="option-label">No longer have the app?</span>
+        <h2>Ask us by email</h2>
+        <ol class="steps">
+          <li>Email us from the address you use to sign in to BYT, so we can confirm it's your account.</li>
+          <li>We'll delete your account and all its data, and reply to confirm, within 7 days.</li>
         </ol>
+        <a
+          class="btn"
+          href="mailto:eshaantr.mukku@gmail.com?subject=Delete%20my%20BYT%20account%20and%20data&body=Please%20delete%20my%20BYT%20account%20and%20all%20associated%20data.%0A%0AAccount%20email%3A%20"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" /></svg>
+          Email a deletion request
+        </a>
+        <p class="small-print" style="margin-top: 1rem">
+          Or write to <a href="mailto:eshaantr.mukku@gmail.com">eshaantr.mukku@gmail.com</a> with the subject
+          “Delete my BYT account and data”.
+        </p>
       </div>
 
-      <a
-        class="btn"
-        href="mailto:eshaantr.mukku@gmail.com?subject=Delete%20my%20BYT%20account%20and%20data&body=Please%20delete%20my%20BYT%20account%20and%20all%20associated%20data.%0A%0AAccount%20email%3A%20"
-      >
-        Request account deletion
-      </a>
+      <section style="margin-top: 3rem">
+        <h2>What gets deleted</h2>
+        <p>Everything stored for your account, permanently:</p>
+        <ul>
+          <li>Your account (name, email and sign-in)</li>
+          <li>Your profile and everything you shared when setting up</li>
+          <li>Goals, daily check-ins and journal entries</li>
+          <li>All coach conversations, text and voice</li>
+          <li>The coach's notes about you, including commitments</li>
+          <li>Your daily allowance record</li>
+        </ul>
+        <div class="note">
+          Nothing is kept afterwards, apart from technical logs that hold no content from your account and expire automatically
+          within 30 days. Reminders already scheduled on your phone stop when you sign out or uninstall the app.
+          Deleting your account can't be undone; to use BYT again, you'd start a new account.
+        </div>
+        <p class="small-print">
+          Want to delete only some things? You can delete individual goals and coach conversations in the app.
+          See the <a href="../privacy/">Privacy Policy</a> for more about how your data is handled.
+        </p>
+      </section>
+    </main>
 
-      <p class="muted" style="margin-top: 1.25rem">
-        Or email
-        <a href="mailto:eshaantr.mukku@gmail.com">eshaantr.mukku@gmail.com</a>
-        with the subject “Delete my BYT account and data”.
-      </p>
-      <!-- contact: eshaantr.mukku@gmail.com -->
-
-      <a class="secondary" href="./">Back to Privacy Policy</a>
-
-      <footer>© 2026 BYT - Build Your Tomorrow</footer>
-    </div>
+    <footer>
+      <div class="wrap">
+        <a class="brand" href="../"><img src="../assets/icon-512.png" alt="" width="32" height="32" />Build Your Tomorrow</a>
+        <div class="foot-links">
+          <a href="../privacy/">Privacy</a>
+          <a href="./" aria-current="page">Delete account</a>
+          <a href="mailto:eshaantr.mukku@gmail.com">Contact</a>
+        </div>
+        <div>&copy; 2026 BYT</div>
+      </div>
+    </footer>
   </body>
 </html>
