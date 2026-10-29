@@ -84,12 +84,17 @@ export function selectMoves(a: TurnAnalysis, history: readonly HistoryMessage[],
     if (a.commitmentStated) {
       return a.playingSmall && coachTurns >= 2 ? plan('make_request', 'commitment is smaller than what they want') : plan('secure_commitment', 'user stated an intention');
     }
+    // "If it was one form tonight, I could do that": they're leaning in, so help them choose rather than probe.
+    if (a.stage === 'commitment' && !a.innerCritic && !a.resistance) return plan('move_to_action', 'they are close to committing');
     if (a.innerCritic) return plan('name_inner_critic', `inner critic: ${a.innerCritic}`);
     if (a.resistance || a.intent === 'push_back') return plan('explore_resistance', 'user is pushing back');
     if (a.contradiction) return plan('name_contradiction', 'contradiction with earlier statements');
     if (a.emotionalIntensity === 2 && last !== 'clearing' && last !== 'acknowledge_and_explore') return feeling();
     if (a.storytelling) return plan('bottom_line', 'long story, essence unclear', undefined, 50);
-    if (a.assumptions.length > 0 && coachTurns >= 1) return plan('challenge_assumption', `assumption: ${a.assumptions[0]}`);
+    // A want they've just said out loud deserves attention before any challenge or hunch.
+    if (a.stage === 'wants' && coachTurns >= 1) return plan('clarify_want', 'they named what they want');
+    // One challenge at a time: two in a row feels like an argument.
+    if (a.assumptions.length > 0 && coachTurns >= 1 && last !== 'challenge_assumption') return plan('challenge_assumption', `assumption: ${a.assumptions[0]}`);
     if (a.pattern && coachTurns >= 2) return plan('offer_intuition', `pattern: ${a.pattern}`);
     if (a.singlePerspective) return plan('explore_perspectives', 'stuck in one way of seeing it');
     if (a.intent === 'decide' && coachTurns < 2) return plan('explore_values', 'a decision: find what matters first');

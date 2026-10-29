@@ -55,7 +55,9 @@ export type GuardInput = {
 };
 
 /** Stock phrases that make a coach sound like a template when they recur. */
-const FORMULAS = ['it sounds like', 'what do you notice', 'what else', "you're noticing", 'i hear', "what's coming up", 'what is coming up', 'what does that'];
+const FORMULAS = ['it sounds like', 'what do you notice', 'what else', "you're noticing", 'i hear', "what's coming up", 'what is coming up', 'what does that', 'in your body'];
+/** Openings that all mirror them back the same way ("You're noticing…", "You sense…", "It sounds like…"). */
+const MIRROR_OPENING = /^(it sounds like|it seems|i hear|i'm hearing|you('re| are) (\w+ing|holding|caught)|you (sense|seem|feel)\b)/;
 const norm = (s: string) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim();
 const opener = (s: string) => norm(s).split(' ').slice(0, 3).join(' ');
 
@@ -108,7 +110,8 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   const previous = (input.coachTexts ?? []).map(norm);
   if (previous.length && !safety) {
     const mine = norm(reply);
-    const sameOpening = previous.some((p) => opener(p) === opener(reply));
+    const latest = previous[previous.length - 1] ?? '';
+    const sameOpening = previous.some((p) => opener(p) === opener(reply)) || (MIRROR_OPENING.test(mine) && MIRROR_OPENING.test(latest));
     const reused = FORMULAS.find((f) => mine.includes(f) && previous.some((p) => p.includes(f)));
     if (sameOpening || reused) {
       issues.push({ check: 'repetition', severity: 'block', detail: `Repeats ${reused ? `"${reused}"` : 'the opening'} from a recent reply. Say it differently.` });

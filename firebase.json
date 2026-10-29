@@ -21,13 +21,8 @@
   },
   "hosting": {
     "public": "website",
-    "ignore": ["README.md", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      {
-        "source": "/",
-        "destination": "/privacy/index.html"
-      }
-    ],
+    "ignore": ["README.md", "*.sh", "**/.*", "**/node_modules/**"],
+    "cleanUrls": true,
     "headers": [
       {
         "source": "**",

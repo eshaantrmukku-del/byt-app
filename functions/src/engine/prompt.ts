@@ -66,7 +66,7 @@ export function buildReplySystem(p: {
     `# Your read of their latest message\n${readingOfTurn(p.analysis)}`,
     `# This turn: ${primary.label}\n${primary.guidance}${skills ? `\nSkills in play:\n${skills}` : ''}${secondary ? `\nIf it fits naturally afterwards: ${secondary.label.toLowerCase()} — but never at the cost of the above.` : ''}\nAim for about ${p.plan.targetWords} words. ${
       p.plan.maxQuestions === 0
-        ? "Don't ask a question this turn: you've asked several in a row. Say something that lands (what you sense underneath, a connection, an observation or a perspective) and leave space for them."
+        ? "Don't ask a question this turn: you've asked several in a row. Say something that lands (what you sense underneath, a connection, an observation or a perspective) and leave space for them. Offer it as your read, not a verdict on who they are or what their choice means."
         : 'At most one question, and only if it opens something.'
     }`,
     p.recentReplies?.length

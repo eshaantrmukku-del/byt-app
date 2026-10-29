@@ -6,9 +6,29 @@
     <title>BYT - Build Your Tomorrow</title>
     <meta
       name="description"
-      content="BYT is your personal AI coach for goals, daily check-ins, and reflection. Build Your Tomorrow - one step at a time."
+      content="BYT is a personal AI coach that listens, remembers you and helps you find your own next step. Daily check-ins, goals, journal and voice coaching in one app."
     />
     <meta name="theme-color" content="#F5F7FB" />
+    <link rel="canonical" href="https://eshaantrmukku-del.github.io/byt-website/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="BYT - Build Your Tomorrow" />
+    <meta property="og:title" content="BYT - Build Your Tomorrow" />
+    <meta property="og:description" content="A personal AI coach that listens, remembers you and helps you find your own next step. Daily check-ins, goals and voice coaching in one app." />
+    <meta property="og:url" content="https://eshaantrmukku-del.github.io/byt-website/" />
+    <meta property="og:image" content="https://eshaantrmukku-del.github.io/byt-website/assets/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "MobileApplication",
+        "name": "BYT - Build Your Tomorrow",
+        "operatingSystem": "Android",
+        "applicationCategory": "LifestyleApplication",
+        "url": "https://eshaantrmukku-del.github.io/byt-website/",
+        "installUrl": "https://play.google.com/store/apps/details?id=com.LiveYourPotential.myapp",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" }
+      }
+    </script>
     <link rel="icon" href="assets/favicon.png" type="image/png" />
     <link rel="apple-touch-icon" href="assets/icon-512.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -459,7 +479,7 @@
         border-top: 1px solid var(--line);
       }
 
-      .feature:first-of-type {
+      .reveal + .feature {
         border-top: none;
         padding-top: 2rem;
       }
@@ -1009,7 +1029,55 @@
         opacity: 1;
         transform: none;
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+
+        .reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+      }
+
+      a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 0.4rem;
+      }
+
+      [id] {
+        scroll-margin-top: calc(var(--nav-h) + 1rem);
+      }
+
+      @media (max-width: 480px) {
+        .hero {
+          min-height: auto;
+          padding-bottom: 3.5rem;
+        }
+
+        .section,
+        .use-cases {
+          padding: 4rem 1.25rem;
+        }
+
+        .download {
+          padding: 5rem 1.25rem;
+        }
+
+        .feature {
+          padding: 3.5rem 0;
+        }
+
+        .store-btn {
+          width: 100%;
+          justify-content: center;
+        }
+      }
     </style>
+    <noscript><style>.reveal { opacity: 1; transform: none; }</style></noscript>
   </head>
   <body>
     <nav class="nav">
@@ -1041,8 +1109,9 @@
         <h1><span>Your coach.<br />Your goals.<br />Your tomorrow.</span></h1>
         <p class="hero-sub">
           You have goals. You know what you should do. But staying consistent, staying honest,
-          and knowing your next step? That's the hard part. BYT is the coach in your pocket -
-          AI guidance, daily check-ins, and progress tracking in one place.
+          and knowing your next step? That's the hard part. BYT is the coach in your pocket: it
+          listens, remembers you, and helps you find your own way forward, with daily check-ins and
+          progress tracking in the same place.
         </p>
         <div class="hero-actions">
           <a
@@ -1164,7 +1233,7 @@
           <div class="benefit-card">
             <div class="benefit-icon" style="background: rgba(124,58,237,0.12); color: #7c3aed">🧠</div>
             <h3>A coach that remembers</h3>
-            <p>Your AI coach learns from your profile, check-ins, and goals - so advice gets sharper the more you use it.</p>
+            <p>Your coach remembers what you've talked about, what you committed to and what matters to you, so each conversation picks up where the last one left off.</p>
           </div>
           <div class="benefit-card">
             <div class="benefit-icon" style="background: rgba(34,211,238,0.12); color: #0891b2">🎙️</div>
@@ -1209,12 +1278,14 @@
               Talk it through.<br />Move forward.
             </h2>
             <p class="section-desc">
-              Speak with an AI coach that remembers your context, goals, and check-ins.
-              Get thoughtful guidance when you're stuck - or when you just need a push.
+              A coach built on professional coaching methods. It asks the questions that help you
+              think clearly, notices patterns you might miss, and helps you commit to a next step
+              that's yours, then checks in on how it went.
             </p>
             <ul class="feature-bullets">
               <li>Voice and text conversations</li>
-              <li>Context-aware coaching from your profile & history</li>
+              <li>Remembers your goals, values and commitments between sessions</li>
+              <li>Challenges you kindly when you're selling yourself short</li>
               <li>Chat history you can revisit anytime</li>
             </ul>
           </div>
@@ -1222,7 +1293,7 @@
             <div class="feature-card">
               <div class="feature-icon" style="background: rgba(124,58,237,0.16); color: #a78bfa">◎</div>
               <h3>AI Coach</h3>
-              <p>"What's one small step I can take toward my goal today?"</p>
+              <p>"You've said twice that you don't have time for this. What would change if it mattered more than the things filling that time?"</p>
             </div>
           </div>
         </div>
@@ -1288,7 +1359,7 @@
           </h2>
           <p class="section-desc">
             Not every moment calls for typing. BYT's voice coaching lets you have real
-            conversations - ask for advice, work through a block, or get accountability
+            conversations - think through a decision, work through a block, or get accountability
             on the go. It's like having a coach on speed dial, without the hourly rate.
           </p>
           <ul class="feature-bullets" style="margin-top: 1.5rem">
@@ -1303,7 +1374,7 @@
             <p>"I've been procrastinating on my side project all week. What's one thing I can do tonight?"</p>
             <div class="reply">
               <strong style="color: var(--accent); font-size: 0.78rem">BYT Coach</strong><br />
-              "Let's make tonight easy to win. Open your project for 15 minutes and write one sentence about what you'd ship first. Small starts beat perfect plans."
+              "A whole week of meaning to, and tonight you're asking for one thing. That sounds like part of you is ready. What would make tonight feel like a win, even a small one?"
             </div>
           </div>
         </div>
@@ -1371,7 +1442,7 @@
           <div class="feature-card">
             <div class="feature-icon" style="background: var(--accent-soft); color: var(--accent)">3</div>
             <h3>Coach when you need it</h3>
-            <p>Text or talk to your AI coach anytime. Ask for a plan, work through a setback, or celebrate a win. It's always there.</p>
+            <p>Text or talk to your coach anytime. Think through a decision, work through a setback, or tell it about a win. It's always there.</p>
           </div>
         </div>
       </div>
@@ -1384,11 +1455,11 @@
         <div class="faq-list">
           <div class="faq-item">
             <h3>How does pricing work?</h3>
-            <p>BYT includes monthly coaching credits on the Beta plan so you can chat with your AI coach regularly.</p>
+            <p>BYT is free to download. You get a coaching allowance that refreshes every day, so you can talk with your coach regularly without counting messages.</p>
           </div>
           <div class="faq-item">
             <h3>How is this different from ChatGPT?</h3>
-            <p>Generic AI forgets you between sessions. BYT remembers your goals, check-in history, and coach profile - so every conversation builds on the last. It's coaching software, not a chat window.</p>
+            <p>A general chatbot answers questions and hands out advice. BYT coaches: it listens, asks the questions that help you think, and leaves the decisions with you. It also remembers your goals, commitments and check-ins, so every conversation builds on the last.</p>
           </div>
           <div class="faq-item">
             <h3>Is my data private?</h3>
@@ -1401,6 +1472,10 @@
           <div class="faq-item">
             <h3>Can I use voice instead of typing?</h3>
             <p>Absolutely. BYT supports voice coaching for natural, spoken conversations - great for when you're on the move or just don't feel like typing.</p>
+          </div>
+          <div class="faq-item">
+            <h3>Is BYT a replacement for therapy?</h3>
+            <p>No. BYT is a coach, not a therapist or a medical service, and it won't diagnose or treat anything. If you're struggling or feel unsafe, please contact a professional or your local emergency services. The coach will point you to support if a conversation suggests you might need it.</p>
           </div>
           <div class="faq-item">
             <h3>Is BYT available on iPhone?</h3>
@@ -1471,8 +1546,8 @@
           BYT - Build Your Tomorrow
         </div>
         <div class="footer-links">
-          <a href="https://eshaantrmukku-del.github.io/byt-website/privacy/">Privacy Policy</a>
-          <a href="https://eshaantrmukku-del.github.io/byt-website/delete-account/">Delete Account</a>
+          <a href="privacy/">Privacy Policy</a>
+          <a href="delete-account/">Delete Account</a>
           <a href="mailto:eshaantr.mukku@gmail.com">Contact</a>
         </div>
         <p class="footer-copy">&copy; 2026 Build Your Tomorrow. All rights reserved.</p>

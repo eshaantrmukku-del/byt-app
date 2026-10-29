@@ -2,32 +2,24 @@
 set -euo pipefail
 
 REPO="eshaantrmukku-del/byt-website"
-# Primary public URL (GitHub Pages). Custom domain is optional until DNS is connected.
+# The site's public address. ./set-domain.sh rewrites this when a custom domain is added.
 SITE_URL="https://eshaantrmukku-del.github.io/byt-website/"
-# Optional custom domain — leave empty or set DOMAIN and keep website/CNAME in sync when ready.
-DOMAIN="${DOMAIN:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# A custom domain is used once website/CNAME exists (created by set-domain.sh).
+DOMAIN=""
+[[ -f "$SCRIPT_DIR/CNAME" ]] && DOMAIN="$(tr -d '[:space:]' < "$SCRIPT_DIR/CNAME")"
 WORKDIR=$(mktemp -d)
 
 cleanup() { rm -rf "$WORKDIR"; }
 trap cleanup EXIT
 
 echo "→ Preparing site in $WORKDIR"
-cp "$SCRIPT_DIR/index.html" "$WORKDIR/"
-# CNAME is optional; only include if present and DOMAIN is set
-if [[ -n "$DOMAIN" && -f "$SCRIPT_DIR/CNAME" ]]; then
-  cp "$SCRIPT_DIR/CNAME" "$WORKDIR/"
-  echo "  including CNAME for $DOMAIN (optional custom domain)"
-fi
-cp -r "$SCRIPT_DIR/assets" "$WORKDIR/"
-mkdir -p "$WORKDIR/privacy" "$WORKDIR/delete-account"
-cp "$SCRIPT_DIR/privacy/index.html" "$WORKDIR/privacy/"
-cp "$SCRIPT_DIR/delete-account/index.html" "$WORKDIR/delete-account/"
+rsync -a --exclude README.md --exclude '*.sh' --exclude '.DS_Store' "$SCRIPT_DIR/" "$WORKDIR/"
 
 cd "$WORKDIR"
-git init -b main
+git init -q -b main
 git add .
-git -c user.email="website@byt.app" -c user.name="BYT" commit -m "Update BYT marketing site"
+git -c user.email="website@byt.app" -c user.name="BYT" commit -q -m "Update BYT marketing site"
 
 gh auth setup-git 2>/dev/null || true
 
@@ -39,7 +31,6 @@ else
     --description "BYT (Build Your Tomorrow) — marketing website"
 fi
 
-# Enable GitHub Pages from main (no custom domain required)
 if [[ -n "$DOMAIN" ]]; then
   PAGES_JSON=$(printf '{"build_type":"legacy","source":{"branch":"main","path":"/"},"cname":"%s"}' "$DOMAIN")
 else
@@ -47,11 +38,21 @@ else
 fi
 gh api -X POST "repos/$REPO/pages" --input - <<<"$PAGES_JSON" 2>/dev/null || \
 gh api -X PUT "repos/$REPO/pages" --input - <<<"$PAGES_JSON" 2>/dev/null || true
+# HTTPS is offered once GitHub has issued the certificate for the domain (can take up to an hour).
+[[ -n "$DOMAIN" ]] && gh api -X PUT "repos/$REPO/pages" -F https_enforced=true >/dev/null 2>&1 || true
 
 echo ""
 echo "✓ Deployed to $SITE_URL"
 if [[ -n "$DOMAIN" ]]; then
-  echo "  (optional custom domain: https://${DOMAIN}/ — requires DNS)"
+  APEX="${DOMAIN#www.}"
+  echo ""
+  echo "DNS records to add at your registrar for $APEX:"
+  echo "  A     @    185.199.108.153"
+  echo "  A     @    185.199.109.153"
+  echo "  A     @    185.199.110.153"
+  echo "  A     @    185.199.111.153"
+  echo "  CNAME www  eshaantrmukku-del.github.io"
+  echo "Then rerun this script once DNS has updated, to switch on HTTPS."
 fi
 
 for i in $(seq 1 12); do
@@ -65,5 +66,5 @@ for i in $(seq 1 12); do
   sleep 5
 done
 
-echo "Site pushed — GitHub Pages may still be building."
+echo "Site pushed — GitHub Pages may still be building (or DNS is still updating)."
 echo "Check: $SITE_URL"

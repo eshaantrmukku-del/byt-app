@@ -1,6 +1,12 @@
 # BYT — Build Your Tomorrow website
 
-Marketing landing page + privacy pages for the BYT mobile app.
+Marketing page, privacy policy and account-deletion page for the BYT app. Plain static
+files, no build step.
+
+Live at **https://eshaantrmukku-del.github.io/byt-website/**
+
+- Privacy policy: https://eshaantrmukku-del.github.io/byt-website/privacy/
+- Account deletion: https://eshaantrmukku-del.github.io/byt-website/delete-account/
 
 ## Preview locally
 
@@ -9,36 +15,29 @@ npx serve website
 # open http://localhost:3000
 ```
 
-## Deploy to GitHub Pages
-
-The marketing site is hosted at:
-
-**https://eshaantrmukku-del.github.io/byt-website/**
-
-Privacy & account deletion (same site):
-
-- **https://eshaantrmukku-del.github.io/byt-website/privacy/**
-- **https://eshaantrmukku-del.github.io/byt-website/delete-account/**
-
-### Redeploy marketing site
+## Deploy
 
 ```bash
-# From repo root — copies website/ to a temp dir and pushes to byt-website
 ./website/deploy.sh
 ```
 
-Or manually:
+Pushes `website/` to the `byt-website` repo and serves it with GitHub Pages.
 
-```bash
-gh auth login   # if needed
-gh repo create byt-website --public --source=. --push  # first time only
-```
+## Moving to your own domain
 
-### Optional custom domain
+1. Buy the domain from any registrar (Cloudflare, Namecheap, Google Domains' successor Squarespace, etc.).
+2. Point the site at it:
 
-`website/CNAME` is optional. When a custom domain (e.g. buildyoutomorrowcoaching.com) is purchased and DNS is pointed at GitHub Pages, copy that CNAME into the deploy bundle and configure DNS:
+   ```bash
+   ./website/set-domain.sh yourdomain.com
+   ```
 
-- **A records** (apex/root `@`): `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
-- **Optional www**: CNAME `www` → `eshaantrmukku-del.github.io`
+   This rewrites every absolute link (sharing tags, sitemap, 404 page, the app's privacy and
+   deletion links) and creates `website/CNAME`.
+3. Deploy with `./website/deploy.sh`. It prints the DNS records to add at your registrar
+   (four `A` records for the root and a `CNAME` for `www`).
+4. Once DNS has updated (minutes to a few hours), run `./website/deploy.sh` again to switch on HTTPS.
+5. Update the privacy policy URL in the Play Console. The old GitHub address keeps working, because
+   GitHub redirects it to the new domain.
 
-Until DNS is connected, use the GitHub Pages URLs above as the primary links.
+The app's links change in the next app release; until then the redirect covers them.

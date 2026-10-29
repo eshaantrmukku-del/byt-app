@@ -227,6 +227,25 @@ describe('pacing (from real Groq conversations)', () => {
     expect(check('It sounds like money and meaning are pulling apart. What matters most?', plan('reflect_and_deepen'), ['It sounds like work is draining.'])).toContain('repetition');
     expect(check('Money and meaning are pulling apart. Which one is louder lately?', plan('reflect_and_deepen'), ['It sounds like work is draining. What do you notice?'])).toEqual([]);
   });
+
+  it('treats "You\'re noticing / seeing / assuming" openings as one formula', () => {
+    const profile = makeContext().profile;
+    const blocks = (reply: string, coachTexts: string[]) =>
+      checkReply({ reply, plan: plan('reflect_and_deepen'), channel: 'text', profile, userTexts: ['x'], coachTexts }).filter((i) => i.severity === 'block').map((i) => i.check);
+    expect(blocks("You're seeing the money as a safety net. What would meaning look like?", ["You're noticing a gap between pay and purpose."])).toContain('repetition');
+    expect(blocks('The money is a safety net, and something else is calling. What would meaning look like?', ["You're noticing a gap between pay and purpose."])).toEqual([]);
+    expect(blocks('What do you notice in your body when the form opens?', ['Something stops you. What do you feel in your body?'])).toContain('repetition');
+  });
+
+  it('follows a stated want, steps forward when they lean in, and never challenges twice running', () => {
+    const challenged = [user('a'), coach('You sound certain. What do you actually know?', 'challenge_assumption')];
+    expect(selectMoves(makeAnalysis({ stage: 'wants', assumptions: ['it pays less'] }), challenged, 'text').primary).toBe('clarify_want');
+    expect(selectMoves(makeAnalysis({ stage: 'commitment', assumptions: ['one form'] }), challenged, 'text').primary).toBe('move_to_action');
+    expect(selectMoves(makeAnalysis({ assumptions: ["they'll say no"] }), challenged, 'text').primary).not.toBe('challenge_assumption');
+    const ctx = makeContext({ history: challenged });
+    expect(heuristicAnalysis("If I knew it was one form tonight, I could do that.", ctx).stage).toBe('commitment');
+    expect(heuristicAnalysis('What I actually want is work that means something.', ctx).stage).toBe('wants');
+  });
 });
 
 describe('no instructions or empty praise', () => {

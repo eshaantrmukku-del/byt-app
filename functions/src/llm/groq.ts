@@ -29,6 +29,7 @@ export class GroqClient implements LlmClient {
     const started = Date.now();
     const deadline = started + req.timeoutMs;
     let lastError: LlmError | undefined;
+    let waitMs = 300;
     // One retry for transient failures, only if there is time left for it.
     for (let attempt = 0; attempt < 2; attempt++) {
       const remaining = deadline - Date.now();
@@ -51,7 +52,12 @@ export class GroqClient implements LlmClient {
             ...(req.thinking && /gpt-oss/.test(req.model) ? { reasoning_effort: EFFORT[req.thinking] } : {}),
           }),
         });
-        if (!res.ok) throw classify(res.status);
+        if (!res.ok) {
+          // Groq says how long until the per-minute token allowance has room again.
+          const retryAfter = Number(res.headers.get('retry-after'));
+          waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1500;
+          throw classify(res.status);
+        }
         const data = (await res.json()) as ChatResponse;
         const text = data.choices?.[0]?.message?.content ?? '';
         if (!text.trim()) throw new LlmError(`Empty model response (${data.choices?.[0]?.finish_reason ?? 'unknown'})`, 'bad-response');
@@ -70,7 +76,11 @@ export class GroqClient implements LlmClient {
               ? new LlmError('Model request timed out', 'timeout')
               : new LlmError('Model request failed', 'server');
         if (lastError.kind === 'config') throw lastError;
-        if (attempt === 0) await new Promise((r) => setTimeout(r, lastError!.kind === 'rate-limit' ? 1500 : 300));
+        if (attempt === 0) {
+          // Only wait if the retry would still fit before the deadline.
+          if (deadline - Date.now() - waitMs < 1500) break;
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
       } finally {
         clearTimeout(timer);
       }
@@ -84,5 +94,5 @@ export const GROQ_MODELS = {
   reply: process.env.BYT_GROQ_REPLY_MODEL || 'openai/gpt-oss-120b',
   // The 20b model misread too many turns (insights as commitments, worry as venting).
   analysis: process.env.BYT_GROQ_ANALYSIS_MODEL || 'openai/gpt-oss-120b',
-  summary: process.env.BYT_GROQ_ANALYSIS_MODEL || 'openai/gpt-oss-20b',
+  summary: process.env.BYT_GROQ_SUMMARY_MODEL || 'openai/gpt-oss-20b',
 } as const;

@@ -67,6 +67,7 @@ Calibrate carefully; these decide the coach's next move:
 - innerCritic: any harsh judgement of themselves, including predictions like "I'll sound stupid", "I'll look like an idiot", "I'm not good enough".
 - insightMoment: they just saw something new about themselves ("Oh. I think I...", "I've just realised", "maybe the real issue is...").
 - commitmentStated / commitment: they say what they will do ("I'll...", "Next week I will..."). A conditional like "If it was one form tonight, I could do that" is stage "commitment", not yet a commitment.
+- stage "wants": they say what they want or wish for ("what I actually want is...", "I'd love to..."), even mid-conversation.
 - allianceNote: ONLY when they say how the coach should coach them (tone, directness, number of questions, challenge). Their own plans are never an allianceNote.
 - explicitAdviceRequest: only direct requests for what to do; a request for ideas or options is wantsIdeas.
 - pattern: only with evidence from more than one of their messages.
@@ -200,7 +201,8 @@ export function heuristicAnalysis(text: string, ctx: CoachContextData): TurnAnal
   let stage: CoachingStage = coachTurns === 0 ? 'opening' : coachTurns < 3 ? 'exploring' : 'awareness';
   if (commitment) stage = 'commitment';
   else if (progress) stage = 'accountability';
-  else if (/\b(i want|i'd love|what i really want|ideally)\b/i.test(text)) stage = 'wants';
+  else if (/\bi could (do|manage|handle) (that|this|it)\b/i.test(text)) stage = 'commitment';
+  else if (/\b(i (really |actually |just )?want|i'd (really )?love|ideally)\b/i.test(text)) stage = 'wants';
   else if (/\b(options|could either|or i could|choose|decide|decision)\b/i.test(text)) stage = 'options';
 
   let intent: UserIntent = 'share';
@@ -296,7 +298,7 @@ export function normaliseAnalysis(
     emotions: strs(r.emotions, fallback.emotions),
     emotionalIntensity: intensity as 0 | 1 | 2 | 3,
     topic: str(r.topic, fallback.topic),
-    stage: STAGES.includes(r.stage as CoachingStage) ? (r.stage as CoachingStage) : fallback.stage,
+    stage: readStage(r.stage, fallback.stage),
     intent: INTENTS.includes(r.intent as UserIntent) ? (r.intent as UserIntent) : fallback.intent,
     explicitAdviceRequest: bool(r.explicitAdviceRequest, fallback.explicitAdviceRequest),
     insightMoment: bool(r.insightMoment, fallback.insightMoment),
@@ -327,6 +329,13 @@ export function normaliseAnalysis(
     energy: ENERGY.includes(r.energy as never) ? (r.energy as TurnAnalysis['energy']) : fallback.energy,
     unspoken: nullableStr(r.unspoken, fallback.unspoken),
   };
+}
+
+/** An explicitly stated want outranks a model that still files the turn under exploring. */
+function readStage(v: unknown, d: CoachingStage): CoachingStage {
+  if (!STAGES.includes(v as CoachingStage)) return d;
+  const early = v === 'opening' || v === 'exploring' || v === 'awareness';
+  return d === 'wants' && early ? 'wants' : (v as CoachingStage);
 }
 
 /** A string field the model may leave null; a missing field keeps the fallback. */

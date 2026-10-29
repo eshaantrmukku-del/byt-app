@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://eshaantrmukku-del.github.io/byt-website/sitemap.xml
