@@ -2,7 +2,7 @@
 # Puts the coach live on ascend-9d17e once billing is on. Run it yourself, in a terminal:
 #   npm run go-live
 # 1. stores the Gemini key from the local backup as a Functions secret (never printed)
-# 2. deploys the functions (coachTurn, voiceTurn, voiceAudio, getAccount, deleteAccount)
+# 2. deploys the functions (coachTurn, voiceTurn, voiceAudio, voicePreview, getAccount, deleteAccount)
 # 3. waits while you open the app once, so your old account is copied to the new collections
 # 4. deploys the Firestore rules and indexes
 # 5. runs the coaching eval against the live model

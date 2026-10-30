@@ -210,6 +210,8 @@ export type EngineInput = {
 export type EngineTrace = {
   analysis: TurnAnalysis;
   analysisSource: 'model' | 'fallback';
+  /** Why the model's reading wasn't used, when it was asked for. */
+  analysisError?: string;
   plan: MovePlan;
   guardIssues: GuardIssue[];
   regenerated: boolean;

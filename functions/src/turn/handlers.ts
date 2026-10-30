@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 
-import { THINKING } from '../config.js';
+import { DEFAULT_VOICE, THINKING } from '../config.js';
 import {
   coachMessageId,
   userMessageId,
@@ -11,8 +11,10 @@ import {
   type CoachMessagePayload,
   type CoachThinking,
   type CoachTurnResponse,
+  type CoachVoice,
   type ReplyAudio,
   type VoiceAudioResponse,
+  type VoicePreviewResponse,
   type VoiceTurnResponse,
 } from '../contract.js';
 import {
@@ -34,7 +36,7 @@ import type { EngineResult, MemoryDelta } from '../engine/types.js';
 import { CoachError } from '../errors.js';
 import { importLegacyAccount } from '../legacy/importLegacy.js';
 import type { LlmClient } from '../llm/types.js';
-import { parseCoachTurnRequest, parseVoiceAudioRequest, parseVoiceTurnRequest } from '../validation.js';
+import { parseCoachTurnRequest, parseVoiceAudioRequest, parseVoicePreviewRequest, parseVoiceTurnRequest } from '../validation.js';
 import { voiceParts } from '../voice/parts.js';
 import type { VoiceProvider } from '../voice/types.js';
 import { loadCoachContext } from './loadContext.js';
@@ -174,6 +176,7 @@ async function runTurn(
       stage: t.analysis.stage,
       risk: t.analysis.risk,
       analysisSource: t.analysisSource,
+      ...(t.analysisError ? { analysisError: t.analysisError } : {}),
       guardIssues: t.guardIssues.map((i) => i.check),
       regenerated: t.regenerated,
       model: t.models.reply,
@@ -260,11 +263,11 @@ function openerPrompt(mode: ConversationState['mode']): string {
  */
 async function speakPart(
   deps: TurnDeps,
-  p: { uid: string; requestId: string; text: string; meter: boolean },
+  p: { uid: string; requestId: string; text: string; meter: boolean; voice: CoachVoice },
 ): Promise<ReplyAudio | null> {
   if (!p.text) return null;
   try {
-    const audio = await deps.voice().synthesize(p.text);
+    const audio = await deps.voice().synthesize(p.text, p.voice);
     if (p.meter) await addTokens(deps.db, p.uid, audio.tokens, deps.now()).catch(() => undefined);
     return { base64: audio.data.toString('base64'), mimeType: audio.mimeType };
   } catch {
@@ -274,10 +277,13 @@ async function speakPart(
 }
 
 /** The first spoken part; the app fetches the others with voiceAudio while it plays. */
-async function firstAudio(deps: TurnDeps, uid: string, requestId: string, reply: string, wanted: boolean, meter: boolean) {
-  const parts = voiceParts(reply);
-  if (!wanted || parts.length === 0) return { replyAudio: null, audioParts: 0 };
-  const replyAudio = await speakPart(deps, { uid, requestId, text: parts[0]!, meter });
+async function firstAudio(
+  deps: TurnDeps,
+  p: { uid: string; requestId: string; reply: string; wanted: boolean; meter: boolean; voice: CoachVoice },
+) {
+  const parts = voiceParts(p.reply);
+  if (!p.wanted || parts.length === 0) return { replyAudio: null, audioParts: 0 };
+  const replyAudio = await speakPart(deps, { uid: p.uid, requestId: p.requestId, text: parts[0]!, meter: p.meter, voice: p.voice });
   return { replyAudio, audioParts: replyAudio ? parts.length : 0 };
 }
 
@@ -314,7 +320,7 @@ export async function handleVoiceTurn(deps: TurnDeps, ctx: CallContext, data: un
       }),
       transcript,
       // Replays are free, including their audio.
-      ...(await firstAudio(deps, uid, req.requestId, reply, req.wantAudio !== false, false)),
+      ...(await firstAudio(deps, { uid, requestId: req.requestId, reply, wanted: req.wantAudio !== false, meter: false, voice: req.voice ?? DEFAULT_VOICE })),
     };
   }
 
@@ -348,7 +354,14 @@ export async function handleVoiceTurn(deps: TurnDeps, ctx: CallContext, data: un
     extraTokens: sttTokens,
     ...(req.thinking ? { thinking: req.thinking } : {}),
   });
-  const audio = await firstAudio(deps, uid, req.requestId, run.reply, req.wantAudio !== false, true);
+  const audio = await firstAudio(deps, {
+    uid,
+    requestId: req.requestId,
+    reply: run.reply,
+    wanted: req.wantAudio !== false,
+    meter: true,
+    voice: req.voice ?? DEFAULT_VOICE,
+  });
   return {
     ...response({
       requestId: req.requestId,
@@ -386,8 +399,27 @@ export async function handleVoiceAudio(deps: TurnDeps, ctx: CallContext, data: u
   });
   const text = voiceParts(turn.reply ?? '')[req.part];
   if (!text) throw new CoachError('invalid-request');
-  const replyAudio = await speakPart(deps, { uid, requestId: req.requestId, text, meter: turn.metered });
+  const replyAudio = await speakPart(deps, { uid, requestId: req.requestId, text, meter: turn.metered, voice: req.voice ?? DEFAULT_VOICE });
   return { requestId: req.requestId, part: req.part, replyAudio };
+}
+
+/** What every voice says when previewed. Fixed, so each instance makes each sample once. */
+export const PREVIEW_TEXT = "Hi, I'm your coach. Take your time — I'm here whenever you want to talk something through.";
+const previews = new Map<CoachVoice, Promise<ReplyAudio | null>>();
+
+/** A sample of one voice for the picker. Not metered: it's the same few seconds for everyone. */
+export async function handleVoicePreview(deps: TurnDeps, ctx: CallContext, data: unknown): Promise<VoicePreviewResponse> {
+  const uid = requireUid(ctx);
+  const { voice } = parseVoicePreviewRequest(data);
+  let sample = previews.get(voice);
+  if (!sample) {
+    sample = speakPart(deps, { uid, requestId: `preview_${voice}`, text: PREVIEW_TEXT, meter: false, voice });
+    previews.set(voice, sample);
+  }
+  const replyAudio = await sample;
+  // A failure is tried again next time rather than remembered.
+  if (!replyAudio) previews.delete(voice);
+  return { voice, replyAudio };
 }
 
 export async function handleGetAccount(

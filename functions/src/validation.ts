@@ -1,12 +1,15 @@
 import { LIMITS } from './config.js';
 import {
   COACH_THINKING,
+  COACH_VOICES,
   VOICE_MIME_TYPES,
   type CoachThinking,
   type CoachTurnRequest,
+  type CoachVoice,
   type ConversationMode,
   type VoiceAudioRequest,
   type VoiceMimeType,
+  type VoicePreviewRequest,
   type VoiceTurnRequest,
 } from './contract.js';
 import { CoachError } from './errors.js';
@@ -67,11 +70,25 @@ function target(raw: Raw) {
 /** Parts beyond this are never produced (see voiceParts). */
 export const MAX_AUDIO_PARTS = 6;
 
+/** An unknown voice is refused; a missing one means the default. */
+function voice(value: unknown): CoachVoice | undefined {
+  if (value === undefined) return undefined;
+  if (!COACH_VOICES.includes(value as CoachVoice)) throw new CoachError('invalid-request');
+  return value as CoachVoice;
+}
+
 export function parseVoiceAudioRequest(data: unknown): VoiceAudioRequest {
   const raw = asObject(data);
   const part = raw.part;
   if (typeof part !== 'number' || !Number.isInteger(part) || part < 1 || part >= MAX_AUDIO_PARTS) throw new CoachError('invalid-request');
-  return { requestId: id(raw.requestId, LIMITS.requestIdMin), part };
+  const chosen = voice(raw.voice);
+  return { requestId: id(raw.requestId, LIMITS.requestIdMin), part, ...(chosen ? { voice: chosen } : {}) };
+}
+
+export function parseVoicePreviewRequest(data: unknown): VoicePreviewRequest {
+  const chosen = voice(asObject(data).voice);
+  if (!chosen) throw new CoachError('invalid-request');
+  return { voice: chosen };
 }
 
 export function parseCoachTurnRequest(data: unknown): CoachTurnRequest {
@@ -102,8 +119,10 @@ export function parseVoiceTurnRequest(data: unknown): VoiceTurnRequest & { audio
   const audioBytes = Buffer.from(audio.base64, 'base64');
   if (audioBytes.length < 32) throw new CoachError('invalid-request');
   if (raw.wantAudio !== undefined && typeof raw.wantAudio !== 'boolean') throw new CoachError('invalid-request');
+  const chosen = voice(raw.voice);
   return {
     ...base,
+    ...(chosen ? { voice: chosen } : {}),
     audio: { base64: audio.base64, mimeType: audio.mimeType as VoiceMimeType, durationMs: audio.durationMs },
     wantAudio: raw.wantAudio !== false,
     audioBytes,

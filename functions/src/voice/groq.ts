@@ -6,13 +6,13 @@ import { promisify } from 'node:util';
 
 import { logger } from 'firebase-functions';
 
-import { TIMEOUTS } from '../config.js';
+import { TIMEOUTS, VOICE_NAMES } from '../config.js';
+import type { CoachVoice } from '../contract.js';
 import { VoiceError, type SpeechAudio, type Transcript, type VoiceProvider } from './types.js';
 
 const BASE = 'https://api.groq.com/openai/v1/audio';
 const STT_MODEL = process.env.BYT_GROQ_STT_MODEL || 'whisper-large-v3-turbo';
 const TTS_MODEL = process.env.BYT_GROQ_TTS_MODEL || 'canopylabs/orpheus-v1-english';
-const TTS_VOICE = process.env.BYT_GROQ_VOICE || 'troy';
 /** Orpheus reads short inputs; longer replies are spoken a sentence group at a time. */
 const TTS_CHUNK_CHARS = 200;
 /** After Orpheus refuses (terms not yet accepted), try it again after this long. */
@@ -51,12 +51,12 @@ export class GroqVoice implements VoiceProvider {
     return { text: (data.text ?? '').trim(), tokens: Math.ceil((data.duration ?? 5) * 32) };
   }
 
-  async synthesize(text: string): Promise<SpeechAudio> {
+  async synthesize(text: string, voice: CoachVoice): Promise<SpeechAudio> {
     const tokens = Math.ceil(text.length / 2);
     if (Date.now() >= this.orpheusOffUntil) {
       try {
         const parts: Buffer[] = [];
-        for (const chunk of chunks(text)) parts.push(await this.orpheus(chunk));
+        for (const chunk of chunks(text)) parts.push(await this.orpheus(chunk, VOICE_NAMES[voice].groq));
         return { data: joinWavs(parts), mimeType: 'audio/wav', tokens };
       } catch (error) {
         if (process.platform !== 'darwin') throw error;
@@ -69,11 +69,11 @@ export class GroqVoice implements VoiceProvider {
     return { data: await macSpeech(text), mimeType: 'audio/wav', tokens };
   }
 
-  private async orpheus(input: string): Promise<Buffer> {
+  private async orpheus(input: string, voice: string): Promise<Buffer> {
     const res = await fetch(`${BASE}/speech`, {
       method: 'POST',
       headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: TTS_MODEL, voice: TTS_VOICE, input, response_format: 'wav' }),
+      body: JSON.stringify({ model: TTS_MODEL, voice, input, response_format: 'wav' }),
       signal: AbortSignal.timeout(TIMEOUTS.ttsMs),
     });
     if (!res.ok) {

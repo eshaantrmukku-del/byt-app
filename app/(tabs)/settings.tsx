@@ -20,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ACCOUNT_DELETION_URL } from '@/content/privacyPolicy';
 import { confirmLogout } from '@/features/session/confirmLogout';
+import { VoicePicker } from '@/features/voice/VoicePicker';
 import { logOut } from '@/services/authService';
 import { coachClient } from '@/services/coach/coachClient';
 import { toCoachError } from '@/services/coach/errors';
@@ -65,6 +66,17 @@ function ThinkingPicker() {
         })}
       </View>
       <Text style={styles.segmentHint}>{selected.hint}</Text>
+    </View>
+  );
+}
+
+function CoachVoicePicker() {
+  const value = usePreferencesStore((s) => s.coachVoice);
+  const setValue = usePreferencesStore((s) => s.setCoachVoice);
+  return (
+    <View>
+      <VoicePicker value={value} onChange={setValue} />
+      <Text style={styles.segmentHint}>Tap ▶ to hear a voice. Your coach uses it in voice sessions.</Text>
     </View>
   );
 }
@@ -168,6 +180,7 @@ export default function SettingsScreen() {
   const account = currentAccount(useUsageStore((s) => s.account));
   const syncError = useSyncStore((s) => s.lastError);
   const checkInReminders = usePreferencesStore((s) => s.pushNotifications);
+  const voiceOn = usePreferencesStore((s) => s.voiceInteraction);
 
   const [deleting, setDeleting] = useState(false);
   const left = percentLeft(account);
@@ -225,6 +238,13 @@ export default function SettingsScreen() {
           <Text style={styles.sectionHeader}>PREFERENCES</Text>
           <ToggleRow icon={Mic} label="Voice Interaction" prefKey="voiceInteraction" />
         </View>
+
+        {voiceOn ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>COACH VOICE</Text>
+            <CoachVoicePicker />
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>REMINDERS</Text>

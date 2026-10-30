@@ -13,6 +13,9 @@ export type TurnKind = 'message' | 'opener';
 /** How long the coach thinks before replying: standard (fastest) → deepest. */
 export type CoachThinking = 'standard' | 'deeper' | 'deepest';
 export const COACH_THINKING: readonly CoachThinking[] = ['standard', 'deeper', 'deepest'];
+/** The coach's speaking voice (Settings → Coach voice). Each maps to a voice of the speech provider. */
+export type CoachVoice = 'ivy' | 'nova' | 'wren' | 'leo' | 'kai' | 'sam';
+export const COACH_VOICES: readonly CoachVoice[] = ['ivy', 'nova', 'wren', 'leo', 'kai', 'sam'];
 
 export type CoachTurnRequest = {
   /** /^[A-Za-z0-9_-]{8,64}$/ — unique per user turn, reused on retry. */
@@ -60,6 +63,8 @@ export type VoiceTurnRequest = {
   audio: { base64: string; mimeType: VoiceMimeType; durationMs: number };
   wantAudio?: boolean;
   thinking?: CoachThinking;
+  /** Defaults to 'ivy'. */
+  voice?: CoachVoice;
 };
 
 export type ReplyAudio = { base64: string; mimeType: 'audio/wav' };
@@ -75,7 +80,11 @@ export type VoiceTurnResponse = CoachTurnResponse & {
 };
 
 /** One later part of a finished voice turn's spoken reply. */
-export type VoiceAudioRequest = { requestId: string; part: number };
+export type VoiceAudioRequest = { requestId: string; part: number; voice?: CoachVoice };
+
+/** A short sample of a voice, for choosing one. Free; the same few seconds for everyone. */
+export type VoicePreviewRequest = { voice: CoachVoice };
+export type VoicePreviewResponse = { voice: CoachVoice; replyAudio: ReplyAudio | null };
 export type VoiceAudioResponse = { requestId: string; part: number; replyAudio: ReplyAudio | null };
 
 export type AccountResponse = {

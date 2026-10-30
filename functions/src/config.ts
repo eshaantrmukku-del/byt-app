@@ -1,4 +1,4 @@
-import type { CoachThinking, Plan } from './contract.js';
+import type { CoachThinking, CoachVoice, Plan } from './contract.js';
 
 const envInt = (name: string, fallback: number) => {
   const n = Number.parseInt(process.env[name] ?? '', 10);
@@ -67,9 +67,21 @@ export const MODELS = {
 export const VOICE = {
   sttModel: process.env.BYT_STT_MODEL || 'gemini-3.5-transcribe',
   ttsModel: process.env.BYT_TTS_MODEL || 'gemini-3.8-flash-lite-tts',
-  /** A warm, calm prebuilt voice. */
-  ttsVoice: process.env.BYT_TTS_VOICE || 'Sulafat',
 } as const;
+
+/**
+ * The provider voice behind each coach voice: Gemini's prebuilt voices in production and
+ * Groq's Orpheus voices in emulator testing, matched by tone.
+ */
+export const VOICE_NAMES: Record<CoachVoice, { gemini: string; groq: string }> = {
+  ivy: { gemini: 'Sulafat', groq: 'hannah' },
+  nova: { gemini: 'Achernar', groq: 'diana' },
+  wren: { gemini: 'Vindemiatrix', groq: 'autumn' },
+  leo: { gemini: 'Achird', groq: 'troy' },
+  kai: { gemini: 'Algieba', groq: 'daniel' },
+  sam: { gemini: 'Schedar', groq: 'austin' },
+};
+export const DEFAULT_VOICE: CoachVoice = 'ivy';
 
 export const TIMEOUTS = {
   analysisMs: 8_000,

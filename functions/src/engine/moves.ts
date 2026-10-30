@@ -69,8 +69,8 @@ export const MOVE_SPECS: Record<Move, MoveSpec> = {
       "First show you've understood, warmly and in their own specifics (what happened, how long, who). Then add something they didn't already have: what seems to sit underneath (a value, fear or want), a link to something they said earlier, or a fresh way of seeing it. Often that's enough: let it land and leave a gentle opening. Ask one question only if it clearly opens something new. Deeper, not wider, and never just a paraphrase.",
     examples: [
       {
-        user: 'I keep putting off applying for university.',
-        coach: "That's a frustrating place to be, wanting it and still not sending it. When something matters this much, putting it off can be a way of protecting the hope. I'd be curious what the application means to you.",
+        user: "I keep meaning to call my brother back and I just don't.",
+        coach: "That's a heavy thing to carry around, meaning to and still not picking up the phone. Sometimes a call we keep putting off matters more than we let on. I'd be curious what makes this one hard to make.",
       },
     ],
   },

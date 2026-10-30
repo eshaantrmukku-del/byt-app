@@ -1,3 +1,5 @@
+import { logger } from 'firebase-functions';
+
 import { LlmError, type LlmClient, type LlmRequest, type LlmResponse, type ThinkingLevel } from './types.js';
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
@@ -33,7 +35,14 @@ export function outputBudget(req: Pick<LlmRequest, 'system' | 'messages' | 'maxO
   return Math.max(600, Math.min(req.maxOutputTokens ?? 4096, room));
 }
 
-function classify(status: number): LlmError {
+/** A request Groq turned down as too big for the per-minute limit, retried with less room to answer. */
+const SMALL_BUDGET = 900;
+const TOO_LARGE = 'Model request too large';
+
+function classify(status: number, code: string): LlmError {
+  // The model wrote JSON that didn't match the schema: a bad answer, worth one more try.
+  if (code === 'json_validate_failed') return new LlmError('Model returned invalid JSON', 'bad-response');
+  if (status === 413) return new LlmError(TOO_LARGE, 'config');
   if (status === 429) return new LlmError('Model rate limited', 'rate-limit');
   if (status === 401 || status === 403) return new LlmError('Model credentials rejected', 'config');
   if (status === 400 || status === 404 || status === 413) return new LlmError(`Model request rejected (${status})`, 'config');
@@ -54,6 +63,7 @@ export class GroqClient implements LlmClient {
     let lastError: LlmError | undefined;
     let waitMs = 300;
     let model = req.model;
+    let budget = outputBudget(req);
     // One retry for transient failures, only if there is time left for it.
     for (let attempt = 0; attempt < 2; attempt++) {
       const remaining = deadline - Date.now();
@@ -71,7 +81,7 @@ export class GroqClient implements LlmClient {
               { role: 'system', content: req.system },
               ...req.messages.map((m) => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text })),
             ],
-            max_completion_tokens: outputBudget(req),
+            max_completion_tokens: budget,
             ...(req.jsonSchema ? { response_format: { type: 'json_schema', json_schema: { name: req.purpose, schema: req.jsonSchema, strict: false } } } : {}),
             ...(req.thinking && /gpt-oss/.test(model) ? { reasoning_effort: EFFORT[req.thinking] } : {}),
             // Qwen thinks out loud unless told not to put its reasoning in the reply.
@@ -82,7 +92,11 @@ export class GroqClient implements LlmClient {
           // Groq says how long until the per-minute token allowance has room again.
           const retryAfter = Number(res.headers.get('retry-after'));
           waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1500;
-          throw classify(res.status);
+          const body = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+          const code = body?.error?.code ?? '';
+          // The code only (never the message, which can quote the request).
+          logger.warn('groq_error', { purpose: req.purpose, model, status: res.status, code });
+          throw classify(res.status, code);
         }
         const data = (await res.json()) as ChatResponse;
         const text = (data.choices?.[0]?.message?.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
@@ -101,6 +115,10 @@ export class GroqClient implements LlmClient {
             : error instanceof Error && error.name === 'AbortError'
               ? new LlmError('Model request timed out', 'timeout')
               : new LlmError('Model request failed', 'server');
+        if (lastError.message === TOO_LARGE && attempt === 0 && budget > SMALL_BUDGET) {
+          budget = SMALL_BUDGET;
+          continue;
+        }
         if (lastError.kind === 'config') throw lastError;
         if (attempt === 0 && lastError.kind === 'rate-limit' && RATE_LIMIT_FALLBACK[model]) {
           model = RATE_LIMIT_FALLBACK[model]!;

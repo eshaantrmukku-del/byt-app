@@ -1,6 +1,7 @@
 import { ApiError, GoogleGenAI, type GenerateContentParameters, type GenerateContentResponse } from '@google/genai';
 
-import { TIMEOUTS, VOICE } from '../config.js';
+import { TIMEOUTS, VOICE, VOICE_NAMES } from '../config.js';
+import type { CoachVoice } from '../contract.js';
 import { VoiceError, type SpeechAudio, type Transcript, type VoiceProvider } from './types.js';
 
 /**
@@ -54,14 +55,14 @@ export class GeminiVoice implements VoiceProvider {
     return { text, tokens: response.usageMetadata?.totalTokenCount ?? 0 };
   }
 
-  async synthesize(text: string): Promise<SpeechAudio> {
+  async synthesize(text: string, voice: CoachVoice): Promise<SpeechAudio> {
     const response = await this.call(
       {
         model: VOICE.ttsModel,
         contents: [{ role: 'user', parts: [{ text: text.slice(0, 2000) }] }],
         config: {
           responseModalities: ['AUDIO'],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE.ttsVoice } } },
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE_NAMES[voice].gemini } } },
         },
       },
       TIMEOUTS.ttsMs,

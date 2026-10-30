@@ -18,6 +18,10 @@ export type VoiceAudioMimeType = 'audio/mp4' | 'audio/m4a' | 'audio/aac' | 'audi
 export type CoachThinking = 'standard' | 'deeper' | 'deepest';
 export const COACH_THINKING: readonly CoachThinking[] = ['standard', 'deeper', 'deepest'];
 
+/** The coach's speaking voice (Settings → Coach voice). See src/features/voice/voices.ts. */
+export type CoachVoice = 'ivy' | 'nova' | 'wren' | 'leo' | 'kai' | 'sam';
+export const COACH_VOICES: readonly CoachVoice[] = ['ivy', 'nova', 'wren', 'leo', 'kai', 'sam'];
+
 type TurnTarget = {
   requestId: string;
   conversationId: string;
@@ -32,6 +36,7 @@ export type CoachTurnRequest = TurnTarget &
 export type VoiceTurnRequest = TurnTarget & {
   audio: { base64: string; mimeType: VoiceAudioMimeType; durationMs: number };
   wantAudio?: boolean;
+  voice?: CoachVoice;
 };
 
 export type CoachMessagePayload = { id: string; text: string; createdAt: number };

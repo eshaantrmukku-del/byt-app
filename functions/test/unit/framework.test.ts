@@ -272,6 +272,18 @@ describe('pacing (from real Groq conversations)', () => {
     expect(blocks("That's an old line to carry, and it still stings. I'd be curious what you'd say back to it now.", said)).toEqual([]);
   });
 
+  it('speaks plainly, never like an analyst, and never tells them what they notice', () => {
+    const profile = makeContext().profile;
+    const blocks = (reply: string, move: Move = 'reflect_and_deepen') =>
+      checkReply({ reply, plan: plan(move), channel: 'text', profile, userTexts: ['x'] }).filter((i) => i.severity === 'block').map((i) => i.check);
+    expect(blocks('Feeling foolish touches on your desire to be authentic and valued. I wonder what that brings up.')).toContain('analytical');
+    expect(blocks('The course has become a stand-in for that old story. I wonder what it would mean to send it.')).toContain('analytical');
+    expect(blocks('That clash between growth and safety is holding it back. I wonder where it started.')).toContain('analytical');
+    expect(blocks("Part of you wants this and part of you doesn't. I wonder which feels louder.", 'name_contradiction')).not.toContain('analytical');
+    expect(blocks("You're noticing the fear is about feeling foolish. I'd be curious what that's like.")).toContain('noticing');
+    expect(blocks("You don't want to feel silly for trying, and that makes sense. I'd be curious what a no would mean to you.")).toEqual([]);
+  });
+
   it('follows a stated want, steps forward when they lean in, and never challenges twice running', () => {
     const challenged = [user('a'), coach('You sound certain. What do you actually know?', 'challenge_assumption')];
     expect(selectMoves(makeAnalysis({ stage: 'wants', assumptions: ['it pays less'] }), challenged, 'text').primary).toBe('clarify_want');

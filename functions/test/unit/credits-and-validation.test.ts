@@ -5,7 +5,7 @@ import { resolveAccount } from '../../src/credits/ledger.js';
 import { DAILY_TOKEN_LIMIT } from '../../src/config.js';
 import { checkRateLimit, dayKey, nextDayStart } from '../../src/credits/period.js';
 import { CoachError, toHttpsError } from '../../src/errors.js';
-import { MAX_AUDIO_PARTS, parseCoachTurnRequest, parseVoiceAudioRequest, parseVoiceTurnRequest } from '../../src/validation.js';
+import { MAX_AUDIO_PARTS, parseCoachTurnRequest, parseVoiceAudioRequest, parseVoicePreviewRequest, parseVoiceTurnRequest } from '../../src/validation.js';
 import { MOCK_SPOKEN_TRANSCRIPT, MockVoice } from '../../src/voice/mock.js';
 import { voiceParts } from '../../src/voice/parts.js';
 
@@ -153,6 +153,13 @@ describe('thinking and audio part requests', () => {
     expect(parseVoiceAudioRequest({ requestId: 'req12345678', part: 1 })).toEqual({ requestId: 'req12345678', part: 1 });
     for (const part of [0, -1, 1.5, MAX_AUDIO_PARTS, '1']) expect(() => parseVoiceAudioRequest({ requestId: 'req12345678', part })).toThrow(CoachError);
     expect(() => parseVoiceAudioRequest({ requestId: 'x', part: 1 })).toThrow(CoachError);
+  });
+
+  it('accepts only the listed coach voices', () => {
+    expect(parseVoiceAudioRequest({ requestId: 'req12345678', part: 1, voice: 'leo' })).toEqual({ requestId: 'req12345678', part: 1, voice: 'leo' });
+    expect(() => parseVoiceAudioRequest({ requestId: 'req12345678', part: 1, voice: 'Sulafat' })).toThrow(CoachError);
+    expect(parseVoicePreviewRequest({ voice: 'wren' })).toEqual({ voice: 'wren' });
+    for (const data of [{}, { voice: 'troy' }, null]) expect(() => parseVoicePreviewRequest(data)).toThrow(CoachError);
   });
 });
 

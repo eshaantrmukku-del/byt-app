@@ -11,7 +11,7 @@ import { GeminiClient } from './llm/gemini.js';
 import { GROQ_MODELS, GroqClient } from './llm/groq.js';
 import { MockLlm } from './llm/mock.js';
 import type { LlmClient } from './llm/types.js';
-import { handleCoachTurn, handleGetAccount, handleVoiceAudio, handleVoiceTurn, type TurnDeps } from './turn/handlers.js';
+import { handleCoachTurn, handleGetAccount, handleVoiceAudio, handleVoicePreview, handleVoiceTurn, type TurnDeps } from './turn/handlers.js';
 import { GeminiVoice } from './voice/gemini.js';
 import { GroqVoice } from './voice/groq.js';
 import { MockVoice } from './voice/mock.js';
@@ -90,6 +90,12 @@ export const voiceTurn = onCall(
 export const voiceAudio = onCall(
   { ...base, secrets: [GEMINI_API_KEY], timeoutSeconds: 30 },
   wrap((req) => handleVoiceAudio(deps, { uid: req.auth?.uid }, req.data)),
+);
+
+/** A short sample of a coach voice, for choosing one in Settings. */
+export const voicePreview = onCall(
+  { ...base, secrets: [GEMINI_API_KEY], timeoutSeconds: 30 },
+  wrap((req) => handleVoicePreview(deps, { uid: req.auth?.uid }, req.data)),
 );
 
 export const getAccount = onCall(

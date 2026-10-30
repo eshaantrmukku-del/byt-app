@@ -26,6 +26,12 @@ const EXPLORING_MOVES = new Set([
   'reflect_and_deepen', 'acknowledge_and_explore', 'clearing', 'name_inner_critic', 'bottom_line', 'explore_values',
   'explore_perspectives', 'offer_intuition', 'powerful_question', 'challenge_assumption', 'name_contradiction', 'explore_resistance',
 ]);
+/** Describing them like a case study ("touches on your desire to be valued", "a stand-in for that old narrative"). */
+const ANALYTICAL = /\b(touches on|speaks to|taps into|points to) (your|a|the) (deep(er)? |underlying |core )?(desire|need|longing|value|wish|fear)s?\b|\byour (deep(er)? )?(desire|need|longing) (to be|for)\b|\b(stand-?in|proxy) for\b|\bnarrative\b|\b(protective|defen[cs]e|coping) mechanism\b|\b(core|underlying) (belief|value|need|wound)s?\b|\bsense of (self-?)?worth\b/i;
+/** Analytical "clash between growth and safety" framing; naming a contradiction is that move's job. */
+const ABSTRACT_TENSION = /\b(clash|tension|conflict|pull|tug) between\b/i;
+/** Telling them what they're noticing, rather than reflecting what they said. */
+const NOTICING = /(^|[.!?]\s+)(you('re| are) noticing|you notice)\b|\blet you notice\b/i;
 /** Questions about bodily sensations read as therapy-speak in an app; feelings are asked about directly. */
 const BODY = /\b(in|through) your body\b|\bbodily\b|\bphysical sensations?\b/i;
 const SOLVING = /\b(here are (some|a few)|here'?s (what|how) (to|you)|the (key|trick|secret) (is|here)|my advice|a (good|great) (tip|strategy|approach) (is|would be)|(start|try) (by|with) (making|writing|breaking|setting))\b/i;
@@ -159,6 +165,13 @@ export function checkReply(input: GuardInput): GuardIssue[] {
     if (borrowed.length >= 2) {
       issues.push({ check: 'borrowed-evidence', severity: 'block', detail: `Uses things they didn't say here as proof of what they can do ("${evidence.slice(0, 60)}"). Only use what they told you in this conversation.` });
     }
+  }
+  const analytical = reply.match(ANALYTICAL) ?? (plan.primary !== 'name_contradiction' ? reply.match(ABSTRACT_TENSION) : null);
+  if (!safety && analytical) {
+    issues.push({ check: 'analytical', severity: 'block', detail: `Describes them like an analyst ("${analytical[0]}"). Say it the plain, human way, in their own words.` });
+  }
+  if (!safety && NOTICING.test(reply)) {
+    issues.push({ check: 'noticing', severity: 'block', detail: 'Tells them what they\'re noticing. Reflect what they actually said instead.' });
   }
   if (!safety && BODY.test(reply)) {
     issues.push({ check: 'body', severity: 'block', detail: 'Asks about bodily sensations. Talk about how it feels or what it means to them instead.' });

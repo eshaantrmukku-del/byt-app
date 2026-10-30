@@ -49,6 +49,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
   let analysis: TurnAnalysis = fallback;
   let analysisSource: 'model' | 'fallback' = 'fallback';
   let analysisMs = 0;
+  let analysisError: string | undefined;
   const opener = text.startsWith('(The user opened');
   if (!opts.skipModelAnalysis && fallback.risk !== 'crisis' && !opener) {
     try {
@@ -68,8 +69,9 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
       analysisMs = res.latencyMs;
       tokensIn += res.inputTokens ?? 0;
       tokensOut += res.outputTokens ?? 0;
-    } catch {
+    } catch (error) {
       // The heuristic reading is good enough to coach one turn; the reply call decides availability.
+      analysisError = error instanceof LlmError ? error.kind : 'unknown';
     }
   }
 
@@ -169,6 +171,7 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
     trace: {
       analysis,
       analysisSource,
+      ...(analysisError ? { analysisError } : {}),
       plan,
       guardIssues: issues,
       regenerated,

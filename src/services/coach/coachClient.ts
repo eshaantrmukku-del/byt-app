@@ -8,6 +8,7 @@ import { CoachError, toCoachError } from './errors';
 import {
   COACH_TEXT_LIMIT,
   COACH_THINKING,
+  COACH_VOICES,
   REQUEST_ID_PATTERN,
   VOICE_MAX_BASE64_LENGTH,
   VOICE_MAX_DURATION_MS,
@@ -16,6 +17,7 @@ import {
   type CoachThinking,
   type CoachTurnRequest,
   type CoachTurnResponse,
+  type CoachVoice,
   type GoalProgressProposal,
   type ReplyAudio,
   type UsageSnapshot,
@@ -128,11 +130,19 @@ function withThinking<T extends { thinking?: CoachThinking }>(request: T): T {
   return { ...request, thinking: COACH_THINKING.includes(level) ? level : 'standard' };
 }
 
+/** The voice chosen in Settings, unless the caller set one. */
+function chosenVoice(voice?: CoachVoice): CoachVoice {
+  const value = voice ?? usePreferencesStore.getState().coachVoice;
+  return COACH_VOICES.includes(value) ? value : 'ivy';
+}
+
 export type CoachClient = {
   coachTurn: (request: CoachTurnRequest) => Promise<CoachTurnResponse>;
   voiceTurn: (request: VoiceTurnRequest) => Promise<VoiceTurnResponse>;
   /** A later part of a finished voice turn's spoken reply. Null if it couldn't be made. */
-  voiceAudio: (requestId: string, part: number) => Promise<ReplyAudio | null>;
+  voiceAudio: (requestId: string, part: number, voice?: CoachVoice) => Promise<ReplyAudio | null>;
+  /** A few seconds of a coach voice, for choosing one. Free. */
+  voicePreview: (voice: CoachVoice) => Promise<ReplyAudio | null>;
   getAccount: () => Promise<AccountSnapshot>;
   deleteAccount: () => Promise<void>;
 };
@@ -154,16 +164,26 @@ export const coachClient: CoachClient = {
     if (!AUDIO_MIME.includes(audio.mimeType) || audio.durationMs <= 0) throw new CoachError('invalid-request');
     if (audio.durationMs > VOICE_MAX_DURATION_MS) throw new CoachError('audio-too-long');
     if (!audio.base64 || audio.base64.length > VOICE_MAX_BASE64_LENGTH) throw new CoachError('audio-too-long');
-    const data = await invoke<VoiceTurnRequest, unknown>('voiceTurn', withThinking(request), VOICE_TIMEOUT_MS, true);
+    const data = await invoke<VoiceTurnRequest, unknown>('voiceTurn', withThinking({ ...request, voice: chosenVoice(request.voice) }), VOICE_TIMEOUT_MS, true);
     const turn = readTurn(data);
     const d = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>;
     const replyAudio = readAudio(d.replyAudio);
     const audioParts = replyAudio && typeof d.audioParts === 'number' && Number.isInteger(d.audioParts) ? Math.max(1, Math.min(6, d.audioParts)) : 0;
     return { ...turn, transcript: typeof d.transcript === 'string' ? d.transcript : '', replyAudio, audioParts };
   },
-  voiceAudio: async (requestId, part) => {
+  voiceAudio: async (requestId, part, voice) => {
     requireRequestId(requestId);
-    const data = await invoke<{ requestId: string; part: number }, unknown>('voiceAudio', { requestId, part }, AUDIO_PART_TIMEOUT_MS, false);
+    const data = await invoke<{ requestId: string; part: number; voice: CoachVoice }, unknown>(
+      'voiceAudio',
+      { requestId, part, voice: chosenVoice(voice) },
+      AUDIO_PART_TIMEOUT_MS,
+      false
+    );
+    return readAudio((data as Record<string, unknown> | null)?.replyAudio);
+  },
+  voicePreview: async (voice) => {
+    if (!COACH_VOICES.includes(voice)) throw new CoachError('invalid-request');
+    const data = await invoke<{ voice: CoachVoice }, unknown>('voicePreview', { voice }, AUDIO_PART_TIMEOUT_MS, false);
     return readAudio((data as Record<string, unknown> | null)?.replyAudio);
   },
   getAccount: async () => {
