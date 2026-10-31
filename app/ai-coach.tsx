@@ -24,7 +24,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChatStore, usePendingTurnsStore } from '@/stores/chatStore';
 import { useUsageStore } from '@/stores/usageStore';
 import { useUserDataStore } from '@/stores/userDataStore';
-import { theme } from '@/ui';
+import { FadeIn, haptic, PressScale, theme, TypingDots } from '@/ui';
 import { RenameChatModal } from '@/ui/RenameChatModal';
 
 export default function AiCoachScreen() {
@@ -86,6 +86,11 @@ export default function AiCoachScreen() {
   const [renameVisible, setRenameVisible] = useState(false);
   const sendLock = useRef(false);
   const listRef = useRef<FlatList<TimelineItem>>(null);
+  /** Messages already there when the chat opened appear at once; new ones glide in. */
+  const [seenKeys, setSeenKeys] = useState<{ conversationId: string; keys: Set<string> } | null>(null);
+  if (conversationId && messagesState?.status === 'ready' && seenKeys?.conversationId !== conversationId) {
+    setSeenKeys({ conversationId, keys: new Set(timeline.map((t) => t.key)) });
+  }
 
   const outOfCredits = noCredits || isUsedUp(account);
   const resets = resetLabel(account.resetsAt);
@@ -98,6 +103,7 @@ export default function AiCoachScreen() {
       return;
     }
     sendLock.current = true;
+    haptic.tap();
     setInputText('');
     const isFirstUserMessage = !messages.some((m) => m.role === 'user') && pending.length === 0;
     if (isFirstUserMessage && shouldAutoTitle(conversation)) autoTitleConversation(uid, conversation.id, text);
@@ -144,7 +150,7 @@ export default function AiCoachScreen() {
     const isUser = item.role === 'user';
     const failed = item.state === 'failed';
     return (
-      <View style={[styles.messageWrap, isUser ? styles.userWrap : styles.aiWrap]}>
+      <FadeIn animate={!seenKeys?.keys.has(item.key)} from={12} style={[styles.messageWrap, isUser ? styles.userWrap : styles.aiWrap]}>
         <TouchableOpacity
           activeOpacity={failed ? 0.7 : 1}
           disabled={!failed}
@@ -165,20 +171,22 @@ export default function AiCoachScreen() {
             <Text style={styles.retryText}>{item.error ?? 'Not sent'} · Tap to retry</Text>
           </TouchableOpacity>
         ) : null}
-      </View>
+      </FadeIn>
     );
   };
 
   const listFooter = isTyping ? (
-    <View style={styles.typing}>
-      <Text style={styles.typingText}>Typing...</Text>
-    </View>
+    <FadeIn from={8} style={[styles.messageWrap, styles.aiWrap]}>
+      <View style={[styles.messageBubble, styles.aiBubble, styles.typingBubble]} accessibilityLabel="Your coach is writing">
+        <TypingDots color={theme.textSecondary} />
+      </View>
+    </FadeIn>
   ) : opener?.state === 'sent' && !messages.some((m) => m.role === 'coach') ? (
-    <View style={[styles.messageWrap, styles.aiWrap]}>
+    <FadeIn from={12} style={[styles.messageWrap, styles.aiWrap]}>
       <View style={[styles.messageBubble, styles.aiBubble]} accessibilityLabel="Coach greeting">
         <Text style={[styles.messageText, { color: theme.text }]}>{opener.text}</Text>
       </View>
-    </View>
+    </FadeIn>
   ) : opener?.state === 'failed' && timeline.length === 0 ? (
     <View style={[styles.messageWrap, styles.aiWrap]}>
       <TouchableOpacity
@@ -321,15 +329,16 @@ export default function AiCoachScreen() {
             editable={!outOfCredits}
             onFocus={() => setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100)}
           />
-          <TouchableOpacity
-            style={[styles.sendButton, { backgroundColor: inputText.trim() && !outOfCredits && !sending ? theme.primary : '#94A3B8' }]}
+          <PressScale
+            scaleTo={0.88}
+            style={[styles.sendButton, inputText.trim() && !outOfCredits && !sending ? styles.sendReady : styles.sendIdle]}
             onPress={() => void handleSend()}
             disabled={!inputText.trim() || sending || outOfCredits || !conversation}
             accessibilityRole="button"
             accessibilityLabel="Send"
           >
-            <Send size={20} color="#fff" />
-          </TouchableOpacity>
+            <Send size={19} color={inputText.trim() && !outOfCredits && !sending ? '#fff' : theme.textMuted} style={styles.sendIcon} />
+          </PressScale>
         </View>
       </KeyboardAvoidingView>
 
@@ -379,19 +388,18 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   errorText: { color: theme.textSecondary, textAlign: 'center' },
   listContent: { padding: 16, paddingBottom: 20 },
-  messageWrap: { marginBottom: 12, maxWidth: '80%' },
+  messageWrap: { marginBottom: 10, maxWidth: '84%' },
   userWrap: { alignSelf: 'flex-end', alignItems: 'flex-end' },
   aiWrap: { alignSelf: 'flex-start', alignItems: 'flex-start' },
-  messageBubble: { padding: 12, borderRadius: 20 },
-  userBubble: { borderBottomRightRadius: 4, backgroundColor: theme.primary },
-  aiBubble: { borderBottomLeftRadius: 4, backgroundColor: theme.card },
+  messageBubble: { paddingVertical: 11, paddingHorizontal: 15, borderRadius: 20 },
+  userBubble: { borderBottomRightRadius: 6, backgroundColor: theme.primary },
+  aiBubble: { borderBottomLeftRadius: 6, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border },
   sendingBubble: { opacity: 0.75 },
   failedBubble: { backgroundColor: 'rgba(239,68,68,0.55)' },
-  messageText: { fontSize: 16, lineHeight: 22 },
+  messageText: { fontSize: 16, lineHeight: 23 },
   retryRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   retryText: { color: '#F87171', fontSize: 12, fontWeight: '600' },
-  typing: { padding: 10, marginLeft: 10 },
-  typingText: { color: theme.icon, fontStyle: 'italic' },
+  typingBubble: { paddingVertical: 10, paddingHorizontal: 16 },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -415,6 +423,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
   },
   sendButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  sendReady: { backgroundColor: theme.primary, shadowColor: theme.primary, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+  sendIdle: { backgroundColor: theme.surface },
+  sendIcon: { marginLeft: -2, marginTop: 1 },
   proposalCard: {
     marginHorizontal: 16,
     marginBottom: 8,

@@ -118,7 +118,15 @@ export async function runCoachingEngine(llm: LlmClient, input: EngineInput, opts
     }
   }
 
-  const guard = (reply: string) => checkReply({ reply, plan, channel, profile: ctx.profile, userTexts: recentUserTexts, coachTexts: recentReplies });
+  const guard = (reply: string) => checkReply({
+      reply,
+      plan,
+      channel,
+      profile: ctx.profile,
+      userTexts: recentUserTexts,
+      coachTexts: recentReplies,
+      goalTitles: ctx.goals.map((g) => g.title),
+    });
   let issues: GuardIssue[] = guard(draft.reply);
   let regenerated = false;
   if (hasBlocking(issues) && Date.now() - started < replyTimeoutMs) {

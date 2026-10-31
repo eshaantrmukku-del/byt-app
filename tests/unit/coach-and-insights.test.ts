@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildTimeline, formatRelativeTime, isTurnSynced, titleFromMessage, type PendingTurn } from '@/features/chat/chat';
-import { focusAreas, weekActivity } from '@/features/insights/insights';
+import { coachInsight, focusAreas, formatCheckInDate, weekActivity } from '@/features/insights/insights';
 import { CoachError, toCoachError } from '@/services/coach/errors';
 import type { ChatMessage, Goal } from '@/types/models';
 
@@ -22,6 +22,24 @@ const message = (id: string, role: 'user' | 'coach', clientTurnId: string, creat
   clientTurnId,
   channel: 'text',
   createdAt,
+});
+
+describe('coachInsight', () => {
+  const c = (date: string, stress: number) => ({ date, stress });
+  it('says what the check-ins show, never generic praise', () => {
+    expect(coachInsight([], 0)).toMatch(/first check-in/);
+    expect(coachInsight([c('2026-10-07', 3), c('2026-10-09', 7)], 0)).toBe(
+      'No check-ins yet this week; your last was on 9 Oct 2026. A quick one today picks the thread back up.'
+    );
+    expect(coachInsight([c('2026-10-27', 4)], 1)).toMatch(/^1 check-in this week/);
+    expect(coachInsight([c('2026-10-26', 8), c('2026-10-27', 7), c('2026-10-28', 8)], 3)).toMatch(/Stress has averaged 8\/10/);
+    expect(coachInsight([c('2026-10-26', 2), c('2026-10-27', 3), c('2026-10-28', 2), c('2026-10-29', 3)], 4)).toMatch(/^4 check-ins this week/);
+    for (const text of [coachInsight([], 0), coachInsight([c('2026-10-27', 4)], 1)]) expect(text).not.toMatch(/great job|amazing|keep it up/i);
+  });
+
+  it('writes dates the British way', () => {
+    expect(formatCheckInDate('2026-10-09')).toBe('9 Oct 2026');
+  });
 });
 
 describe('weekActivity', () => {
@@ -107,6 +125,8 @@ describe('chat timeline', () => {
     expect(formatRelativeTime(now - 5 * 60_000, now)).toBe('5m ago');
     expect(formatRelativeTime(now - 3 * 3_600_000, now)).toBe('3h ago');
     expect(formatRelativeTime(now - 2 * 86_400_000, now)).toBe('2d ago');
+    expect(formatRelativeTime(new Date(2026, 9, 9, 12).getTime(), new Date(2026, 9, 31, 12).getTime())).toBe('9 Oct');
+    expect(formatRelativeTime(new Date(2025, 9, 9, 12).getTime(), new Date(2026, 9, 31, 12).getTime())).toBe('9 Oct 2025');
   });
 });
 

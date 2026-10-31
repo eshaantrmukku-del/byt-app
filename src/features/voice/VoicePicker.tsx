@@ -7,7 +7,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from '
 
 import { coachClient } from '@/services/coach/coachClient';
 import type { CoachVoice, ReplyAudio } from '@/services/coach/types';
-import { theme } from '@/ui';
+import { haptic, theme } from '@/ui';
 
 import { VOICE_OPTIONS } from './voices';
 
@@ -113,6 +113,7 @@ export function VoicePicker({ value, onChange, previewOnSelect = true }: Props) 
           <Pressable
             key={option.id}
             onPress={() => {
+              if (!selected) haptic.select();
               onChange(option.id);
               if (previewOnSelect && !selected) void play(option.id);
             }}

@@ -1,5 +1,6 @@
 import { ApiError, GoogleGenAI, ThinkingLevel as GenAiThinking } from '@google/genai';
 
+import { FALLBACK_MODELS } from '../config.js';
 import { LlmError, type LlmClient, type LlmRequest, type LlmResponse, type ThinkingLevel } from './types.js';
 
 const THINKING: Record<ThinkingLevel, GenAiThinking> = {
@@ -39,6 +40,7 @@ export class GeminiClient implements LlmClient {
     const started = Date.now();
     const deadline = started + req.timeoutMs;
     let lastError: LlmError | undefined;
+    let model = req.model;
     // One retry for transient failures, only if there is time left for it.
     for (let attempt = 0; attempt < 2; attempt++) {
       const remaining = deadline - Date.now();
@@ -46,9 +48,9 @@ export class GeminiClient implements LlmClient {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), remaining);
       try {
-        const legacy = /^gemini-2\./.test(req.model);
+        const legacy = /^gemini-2\./.test(model);
         const response = await this.ai.models.generateContent({
-          model: req.model,
+          model,
           contents: req.messages.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
           config: {
             systemInstruction: req.system,
@@ -67,7 +69,7 @@ export class GeminiClient implements LlmClient {
         }
         return {
           text,
-          model: req.model,
+          model,
           latencyMs: Date.now() - started,
           inputTokens: response.usageMetadata?.promptTokenCount,
           outputTokens: (response.usageMetadata?.candidatesTokenCount ?? 0) + (response.usageMetadata?.thoughtsTokenCount ?? 0),
@@ -75,6 +77,12 @@ export class GeminiClient implements LlmClient {
       } catch (error) {
         lastError = classify(error);
         if (lastError.kind === 'config' || lastError.kind === 'blocked') throw lastError;
+        // Overloaded or rate limited: the backup model answers straight away, without waiting.
+        const fallback = FALLBACK_MODELS[model];
+        if (attempt === 0 && fallback && (lastError.kind === 'server' || lastError.kind === 'rate-limit')) {
+          model = fallback;
+          continue;
+        }
         if (attempt === 0) await new Promise((r) => setTimeout(r, lastError!.kind === 'rate-limit' ? 1000 : 300));
       } finally {
         clearTimeout(timer);

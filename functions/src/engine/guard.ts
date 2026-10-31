@@ -74,7 +74,14 @@ export type GuardInput = {
   userTexts: string[];
   /** The coach's last few replies, to catch it repeating itself. */
   coachTexts?: string[];
+  /** Titles of their goals, so the coach doesn't rename what they said after one. */
+  goalTitles?: string[];
 };
+
+/** Moves where naming a goal is the point (greeting, following up on a commitment). */
+const GOAL_TALK_MOVES = new Set(['open_session', 'accountability_check', 'move_to_action', 'make_request']);
+/** Words match on their first five letters, so "applying" covers "apply". */
+const stem = (w: string) => w.slice(0, 5);
 
 /** Stock phrases that make a coach sound like a template when they recur. */
 const FORMULAS = ['it sounds like', 'what do you notice', 'what else', "you're noticing", 'i hear', "what's coming up", 'what is coming up', 'what does that', 'in your body'];
@@ -131,6 +138,16 @@ export function checkReply(input: GuardInput): GuardIssue[] {
   const echoed = profilePhrases(input.profile).filter((ph) => lowerReply.includes(ph) && !said.includes(ph));
   if (echoed.length >= 2 || (echoed.length === 1 && (plan.primary === 'open_session' || EVIDENCE.test(reply)))) {
     issues.push({ check: 'profile-recital', severity: 'block', detail: `Recites profile details they didn't bring up ("${echoed[0]}"). Use background quietly.` });
+  }
+
+  // "The university application" when they said "the course": a goal's name, not theirs.
+  if (!safety && !GOAL_TALK_MOVES.has(plan.primary) && input.goalTitles?.length) {
+    const heardStems = new Set(contentWords(input.userTexts.join(' ')).map(stem));
+    const replyWords = new Set(contentWords(reply));
+    const renamed = input.goalTitles.flatMap(contentWords).find((w) => replyWords.has(w) && !heardStems.has(stem(w)));
+    if (renamed) {
+      issues.push({ check: 'renamed', severity: 'block', detail: `Calls it "${renamed}", from a goal's title, when they didn't. Use the words they used.` });
+    }
   }
 
   const previous = (input.coachTexts ?? []).map(norm);

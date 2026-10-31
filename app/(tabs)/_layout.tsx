@@ -1,8 +1,8 @@
 import { router, Tabs } from 'expo-router';
 import { BarChart2, Home, MessageCircle, Settings, Target } from 'lucide-react-native';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
-import { shadows, theme } from '@/ui';
+import { PressScale, shadows, theme } from '@/ui';
 
 export default function TabLayout() {
   return (
@@ -11,6 +11,8 @@ export default function TabLayout() {
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,
         headerShown: false,
+        // A soft cross-fade between tabs instead of a hard cut.
+        animation: 'fade',
         sceneStyle: { backgroundColor: theme.background },
         tabBarStyle: {
           backgroundColor: theme.card,
@@ -31,12 +33,12 @@ export default function TabLayout() {
         options={{
           title: 'Coach',
           tabBarButton: ({ onPress }) => (
-            <Pressable onPress={onPress} style={styles.coachTab} accessibilityRole="button" accessibilityLabel="Talk to your coach">
+            <PressScale scaleTo={0.9} onPress={onPress} containerStyle={styles.coachTab} style={styles.coachInner} accessibilityRole="button" accessibilityLabel="Talk to your coach">
               <View style={styles.coachCircle}>
                 <MessageCircle size={26} color="#FFFFFF" />
               </View>
               <Text style={styles.coachLabel}>Coach</Text>
-            </Pressable>
+            </PressScale>
           ),
         }}
         listeners={{
@@ -57,6 +59,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   coachTab: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  coachInner: { alignItems: 'center' },
   coachCircle: {
     width: 56,
     height: 56,
@@ -67,7 +70,7 @@ const styles = StyleSheet.create({
     borderColor: theme.card,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.card,
+    ...shadows.glow,
   },
   coachLabel: { marginTop: 2, fontSize: 11, fontWeight: '600', color: theme.text },
 });

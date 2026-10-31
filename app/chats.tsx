@@ -11,7 +11,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 import type { Conversation } from '@/types/models';
-import { theme } from '@/ui';
+import { FadeIn, PressScale, stagger, theme } from '@/ui';
 import { RenameChatModal } from '@/ui/RenameChatModal';
 
 export default function ChatsScreen() {
@@ -57,9 +57,10 @@ export default function ChatsScreen() {
         data={chats}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
-        renderItem={({ item }) => (
-          <View style={styles.chatItem}>
-            <TouchableOpacity
+        renderItem={({ item, index }) => (
+          <FadeIn delay={stagger(index)} style={styles.chatItem}>
+            <PressScale
+              containerStyle={styles.flex1}
               style={styles.chatMain}
               onPress={() => open(item.id)}
               onLongPress={() => setRenaming(item)}
@@ -78,7 +79,7 @@ export default function ChatsScreen() {
                 </Text>
                 <Text style={styles.chatTime}>{formatRelativeTime(item.updatedAt)}</Text>
               </View>
-            </TouchableOpacity>
+            </PressScale>
             <View style={styles.actionsCol}>
               <TouchableOpacity
                 onPress={() => setRenaming(item)}
@@ -101,7 +102,7 @@ export default function ChatsScreen() {
                 </TouchableOpacity>
               ) : null}
             </View>
-          </View>
+          </FadeIn>
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -161,6 +162,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.border,
   },
+  flex1: { flex: 1, minWidth: 0 },
   chatMain: { flex: 1, flexDirection: 'row', alignItems: 'center', minWidth: 0 },
   chatIconContainer: {
     width: 48,

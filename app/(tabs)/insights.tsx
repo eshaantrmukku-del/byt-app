@@ -1,20 +1,39 @@
 import { router } from 'expo-router';
 import { ChevronLeft, Lightbulb, MessageCircle, Share2, Target, TrendingUp, User } from 'lucide-react-native';
-import { useMemo } from 'react';
-import { ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Animated, Easing, Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, G } from 'react-native-svg';
 
 import { localDateKey } from '@/features/dates';
-import { focusAreas, formatCheckInDate, moodLabels, weekActivity } from '@/features/insights/insights';
+import { coachInsight, focusAreas, formatCheckInDate, moodLabels, weekActivity } from '@/features/insights/insights';
 import { createConversation } from '@/services/conversationsService';
 import { useAuthStore } from '@/stores/authStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 import type { CheckIn } from '@/types/models';
-import { theme } from '@/ui';
+import { FadeIn, PressScale, stagger, theme } from '@/ui';
 
 const CIRCUMFERENCE = 2.51; // 2πr / 100 for r = 40, so values are percentages
+
+/** One day's bar, growing up from the bottom when the screen opens. */
+function DayBar({ filled, color, delay }: { filled: boolean; color: string; delay: number }) {
+  const [grow] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.timing(grow, {
+      toValue: 1,
+      duration: 600,
+      delay,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [grow, delay]);
+  return (
+    <Animated.View
+      style={[styles.barFill, { height: filled ? '100%' : '10%', backgroundColor: color, transformOrigin: 'bottom', transform: [{ scaleY: grow }] }]}
+    />
+  );
+}
 
 export default function InsightsScreen() {
   const uid = useAuthStore((s) => s.user?.uid);
@@ -60,7 +79,7 @@ export default function InsightsScreen() {
       </View>
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.statsGrid}>
+        <FadeIn style={styles.statsGrid}>
           <View style={styles.statCard}>
             <View style={styles.statIconContainer}>
               <Target size={20} color="#2563EB" />
@@ -80,9 +99,9 @@ export default function InsightsScreen() {
             <Text style={styles.statValue}>{checkIns.length}</Text>
             <Text style={styles.statSubText}>Entries logged</Text>
           </View>
-        </View>
+        </FadeIn>
 
-        <View style={styles.card}>
+        <FadeIn delay={stagger(1)} style={styles.card}>
           <Text style={styles.cardSectionTitle}>WEEKLY ACTIVITY</Text>
           <View style={styles.activityHeader}>
             <Text style={styles.activityValue}>
@@ -91,26 +110,22 @@ export default function InsightsScreen() {
             <Text style={styles.activityPeriod}>This Week</Text>
           </View>
           <View style={styles.barChartContainer}>
-            {week.map((day) => (
+            {week.map((day, i) => (
               <View key={day.date} style={styles.barColumn}>
                 <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      {
-                        height: day.checkedIn ? '100%' : '10%',
-                        backgroundColor: day.isToday ? theme.primary : day.checkedIn ? '#60A5FA' : theme.surfaceElevated,
-                      },
-                    ]}
+                  <DayBar
+                    filled={day.checkedIn}
+                    color={day.isToday ? theme.primary : day.checkedIn ? '#60A5FA' : theme.surfaceElevated}
+                    delay={250 + i * 60}
                   />
                 </View>
                 <Text style={[styles.barLabel, day.isToday && styles.barLabelActive]}>{day.label}</Text>
               </View>
             ))}
           </View>
-        </View>
+        </FadeIn>
 
-        <View style={styles.card}>
+        <FadeIn delay={stagger(2)} style={styles.card}>
           <Text style={styles.cardTitle}>Reflections</Text>
           <Text style={styles.reflectionIntro}>Discuss a check-in with your coach to explore patterns and next moves.</Text>
           {reflections.length === 0 ? (
@@ -127,7 +142,8 @@ export default function InsightsScreen() {
                     {(c.reflection || c.win || '').trim() || 'No written notes'}
                   </Text>
                 </View>
-                <TouchableOpacity
+                <PressScale
+                  scaleTo={0.94}
                   style={styles.discussButton}
                   onPress={() => discuss(c)}
                   accessibilityRole="button"
@@ -135,13 +151,13 @@ export default function InsightsScreen() {
                 >
                   <MessageCircle size={16} color="#fff" />
                   <Text style={styles.discussButtonText}>Discuss</Text>
-                </TouchableOpacity>
+                </PressScale>
               </View>
             ))
           )}
-        </View>
+        </FadeIn>
 
-        <View style={styles.card}>
+        <FadeIn delay={stagger(3)} style={styles.card}>
           <Text style={styles.cardTitle}>Focus Areas</Text>
           {top ? (
             <View style={styles.focusContainer}>
@@ -187,21 +203,22 @@ export default function InsightsScreen() {
               <Text style={styles.emptyText}>Add goals to see your focus distribution.</Text>
             </View>
           )}
-        </View>
+        </FadeIn>
 
-        <View style={[styles.card, styles.insightCard]}>
+        <FadeIn delay={stagger(4)} style={[styles.card, styles.insightCard]}>
           <View style={styles.insightHeader}>
             <View style={styles.insightIconBox}>
-              <Lightbulb size={20} color="#2563EB" fill="#2563EB" />
+              <Lightbulb size={20} color="#60A5FA" />
             </View>
             <Text style={styles.insightTitle}>Coach Insight</Text>
           </View>
-          <Text style={styles.insightText}>
-            {checkIns.length > 0
-              ? 'Great job maintaining consistency! Regular reflection is key to long-term growth. Keep checking in daily.'
-              : 'Start your journey by logging your first daily reflection. It only takes a minute!'}
-          </Text>
-        </View>
+          <Text style={styles.insightText}>{coachInsight(checkIns, thisWeek)}</Text>
+          {thisWeek === 0 ? (
+            <PressScale style={styles.insightAction} onPress={() => router.push('/check-in')} accessibilityRole="button" accessibilityLabel="Check in now">
+              <Text style={styles.insightActionText}>Check in now</Text>
+            </PressScale>
+          ) : null}
+        </FadeIn>
 
         <View style={styles.bottomSpace} />
       </ScrollView>
@@ -249,9 +266,11 @@ const styles = StyleSheet.create({
   emptyStateBox: { padding: 20, alignItems: 'center' },
   emptyText: { color: '#94A3B8', fontStyle: 'italic' },
   insightCard: { backgroundColor: '#1e293b', borderColor: '#334155' },
+  insightAction: { alignSelf: 'flex-start', marginTop: 14, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, backgroundColor: theme.primarySoft },
+  insightActionText: { color: '#60A5FA', fontWeight: '700' },
   insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  insightIconBox: { backgroundColor: '#DBEAFE', borderRadius: 8, padding: 6 },
-  insightTitle: { fontSize: 16, fontWeight: '700', color: '#2563EB' },
+  insightIconBox: { backgroundColor: 'rgba(59,130,246,0.16)', borderRadius: 10, padding: 7 },
+  insightTitle: { fontSize: 16, fontWeight: '700', color: theme.text },
   insightText: { fontSize: 15, color: '#cbd5e1', lineHeight: 24 },
   reflectionIntro: { fontSize: 14, color: '#64748B', marginBottom: 16, lineHeight: 20 },
   emptyReflectionText: { fontSize: 14, color: '#94A3B8', fontStyle: 'italic' },

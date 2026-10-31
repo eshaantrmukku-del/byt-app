@@ -284,6 +284,17 @@ describe('pacing (from real Groq conversations)', () => {
     expect(blocks("You don't want to feel silly for trying, and that makes sense. I'd be curious what a no would mean to you.")).toEqual([]);
   });
 
+  it("calls things by their words, not a goal's title", () => {
+    const profile = makeContext().profile;
+    const said = ["I keep putting off applying for the course. It's been weeks."];
+    const blocks = (reply: string) =>
+      checkReply({ reply, plan: plan('reflect_and_deepen'), channel: 'text', profile, userTexts: said, goalTitles: ['Apply to university'] })
+        .filter((i) => i.severity === 'block')
+        .map((i) => i.check);
+    expect(blocks("Weeks of carrying the university application around. I wonder what's on the line for you.")).toContain('renamed');
+    expect(blocks("Weeks of carrying the course around, wanting to apply. I wonder what's on the line for you.")).toEqual([]);
+  });
+
   it('follows a stated want, steps forward when they lean in, and never challenges twice running', () => {
     const challenged = [user('a'), coach('You sound certain. What do you actually know?', 'challenge_assumption')];
     expect(selectMoves(makeAnalysis({ stage: 'wants', assumptions: ['it pays less'] }), challenged, 'text').primary).toBe('clarify_want');

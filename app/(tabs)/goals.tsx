@@ -33,7 +33,7 @@ import { retryUserData } from '@/services/session';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 import type { Goal } from '@/types/models';
-import { theme } from '@/ui';
+import { AnimatedBar, FadeIn, haptic, PressScale, stagger, theme } from '@/ui';
 
 const FILTERS = ['All', 'Active', 'Completed'] as const;
 type Filter = (typeof FILTERS)[number];
@@ -58,6 +58,8 @@ export default function GoalsScreen() {
   const toggleStatus = async (goal: Goal) => {
     if (!uid) return;
     const completing = goal.status !== 'completed';
+    if (completing) haptic.success();
+    else haptic.select();
     try {
       await updateGoal(uid, goal.id, completing ? { status: 'completed', progress: 100 } : { status: 'active', progress: 0 });
     } catch (e) {
@@ -65,38 +67,34 @@ export default function GoalsScreen() {
     }
   };
 
-  const renderGoal = ({ item }: { item: Goal }) => {
+  const renderGoal = ({ item, index }: { item: Goal; index: number }) => {
     const done = item.status === 'completed';
     return (
-      <View style={styles.goalCard}>
-        <View style={styles.goalHeader}>
-          <TouchableOpacity
-            style={styles.flex}
-            activeOpacity={0.85}
-            onPress={() => setEditing(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`${item.title}, ${item.progress}%`}
-          >
-            <Text style={styles.goalCategory}>{CATEGORY_LABELS[item.category]}</Text>
-            <Text style={styles.goalTitle}>{item.title}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => void toggleStatus(item)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: done }}
-            accessibilityLabel={done ? `Mark ${item.title} as active` : `Mark ${item.title} as completed`}
-          >
-            {done ? <CheckCircle size={24} color={theme.primary} /> : <Circle size={24} color={theme.icon} />}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${item.progress}%` }]} />
+      <FadeIn delay={stagger(index)}>
+        <PressScale style={styles.goalCard} onPress={() => setEditing(item)} accessibilityRole="button" accessibilityLabel={`${item.title}, ${item.progress}%`}>
+          <View style={styles.goalHeader}>
+            <View style={styles.flex}>
+              <Text style={[styles.goalCategory, done && styles.doneCategory]}>{CATEGORY_LABELS[item.category]}</Text>
+              <Text style={[styles.goalTitle, done && styles.doneTitle]}>{item.title}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => void toggleStatus(item)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: done }}
+              accessibilityLabel={done ? `Mark ${item.title} as active` : `Mark ${item.title} as completed`}
+            >
+              {done ? <CheckCircle size={24} color={theme.success} /> : <Circle size={24} color={theme.icon} />}
+            </TouchableOpacity>
           </View>
-          <Text style={styles.progressText}>{item.progress}%</Text>
-        </View>
-      </View>
+          <View style={styles.progressContainer}>
+            <View style={styles.flex}>
+              <AnimatedBar percent={item.progress} color={done ? theme.success : theme.primary} track={theme.surface} delay={200 + stagger(index)} />
+            </View>
+            <Text style={[styles.progressText, done && styles.doneProgress]}>{item.progress}%</Text>
+          </View>
+        </PressScale>
+      </FadeIn>
     );
   };
 
@@ -104,9 +102,9 @@ export default function GoalsScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <View style={styles.header}>
         <Text style={styles.title}>My Goals</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => setEditing('new')} accessibilityRole="button" accessibilityLabel="New goal">
+        <PressScale scaleTo={0.9} style={styles.addButton} onPress={() => setEditing('new')} accessibilityRole="button" accessibilityLabel="New goal">
           <Plus size={24} color="#fff" />
-        </TouchableOpacity>
+        </PressScale>
       </View>
 
       <View style={styles.filterContainer}>
@@ -250,8 +248,8 @@ function GoalSheet({ uid, goal, onClose }: { uid: string | undefined; goal: Goal
                     <Text style={styles.label}>Progress</Text>
                     <Text style={styles.progressValue}>{draft.progress}%</Text>
                   </View>
-                  <View style={[styles.progressBarBg, styles.sheetProgress]}>
-                    <View style={[styles.progressBarFill, { width: `${draft.progress}%` }]} />
+                  <View style={styles.sheetProgress}>
+                    <AnimatedBar percent={draft.progress} color={theme.primary} track={theme.card} height={10} />
                   </View>
                   <View style={styles.presetRow}>
                     {PROGRESS_PRESETS.map((p) => (
@@ -315,7 +313,16 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingBottom: 16 },
   title: { fontSize: 28, fontWeight: 'bold', color: theme.text },
-  addButton: { backgroundColor: theme.primary, padding: 10, borderRadius: 20 },
+  addButton: {
+    backgroundColor: theme.primary,
+    padding: 10,
+    borderRadius: 20,
+    shadowColor: theme.primary,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
   filterContainer: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 16, gap: 12 },
   filterChip: {
     paddingVertical: 8,
@@ -341,9 +348,10 @@ const styles = StyleSheet.create({
   goalCategory: { fontSize: 12, color: theme.primary, fontWeight: '700', textTransform: 'uppercase', marginBottom: 4 },
   goalTitle: { fontSize: 18, fontWeight: 'bold', color: theme.text },
   progressContainer: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  progressBarBg: { flex: 1, height: 8, backgroundColor: theme.surface, borderRadius: 4, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: theme.primary, borderRadius: 4 },
-  progressText: { fontSize: 14, fontWeight: '600', color: theme.primary },
+  progressText: { fontSize: 14, fontWeight: '700', color: theme.primary, minWidth: 40, textAlign: 'right' },
+  doneCategory: { color: theme.success },
+  doneTitle: { color: theme.textSecondary },
+  doneProgress: { color: theme.success },
   emptyContainer: { alignItems: 'center', marginTop: 40, gap: 12 },
   emptyText: { color: theme.icon, fontSize: 16, textAlign: 'center' },
   retry: { paddingVertical: 8, paddingHorizontal: 16 },
@@ -387,7 +395,7 @@ const styles = StyleSheet.create({
   categoryTextActive: { color: '#fff' },
   progressLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   progressValue: { fontSize: 16, fontWeight: '700', color: theme.primary },
-  sheetProgress: { flex: 0, marginBottom: 16 },
+  sheetProgress: { marginBottom: 16 },
   presetRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   presetChip: {
     flex: 1,

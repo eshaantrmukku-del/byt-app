@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FadeIn, PressScale } from './motion';
 import { authTheme, shadows, theme } from './theme';
 
 /** Gradient background, centred scrollable column and the Sparkles header used on auth screens. */
@@ -32,14 +33,16 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
             bounces={false}
           >
             <View style={styles.content}>
-              <View style={styles.header}>
+              <FadeIn from={14} style={styles.header}>
                 <View style={styles.iconContainer}>
                   <Sparkles size={32} color={authTheme.linkHighlight} />
                 </View>
                 <Text style={styles.title}>{title}</Text>
                 <Text style={styles.subtitle}>{subtitle}</Text>
-              </View>
-              <View style={styles.form}>{children}</View>
+              </FadeIn>
+              <FadeIn delay={120} from={14} style={styles.form}>
+                {children}
+              </FadeIn>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -72,10 +75,9 @@ export const AuthField = forwardRef<TextInputInstance, FieldProps>(function Auth
 
 export function AuthButton({ label, onPress, loading }: { label: string; onPress: () => void; loading?: boolean }) {
   return (
-    <TouchableOpacity
+    <PressScale
       onPress={onPress}
       style={[styles.button, loading && styles.buttonBusy]}
-      activeOpacity={0.8}
       disabled={loading}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -88,7 +90,7 @@ export function AuthButton({ label, onPress, loading }: { label: string; onPress
           <ArrowRight size={20} color="#FFF" />
         </>
       )}
-    </TouchableOpacity>
+    </PressScale>
   );
 }
 

@@ -26,6 +26,12 @@ const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 const EMULATOR = process.env.FUNCTIONS_EMULATOR === 'true';
 const MOCK = EMULATOR && process.env.BYT_LLM_MODE === 'mock';
 const GROQ = EMULATOR && process.env.BYT_LLM_MODE === 'groq';
+/** The real Gemini code path in the emulator, for testing on a phone before launch. */
+const GEMINI_TEST = EMULATOR && process.env.BYT_LLM_MODE === 'gemini';
+
+function geminiKey(): string {
+  return GEMINI_TEST ? (process.env.BYT_GEMINI_TEST_KEY ?? '') : GEMINI_API_KEY.value();
+}
 
 let gemini: LlmClient | undefined;
 let geminiVoice: VoiceProvider | undefined;
@@ -33,7 +39,7 @@ let geminiVoice: VoiceProvider | undefined;
 function llm(): LlmClient {
   if (MOCK) return (gemini ??= new MockLlm());
   if (GROQ) return (gemini ??= new GroqClient(process.env.GROQ_API_KEY ?? ''));
-  const key = GEMINI_API_KEY.value();
+  const key = geminiKey();
   if (!key) throw new CoachError('not-configured');
   return (gemini ??= new GeminiClient(key));
 }
@@ -41,7 +47,7 @@ function llm(): LlmClient {
 function voice(): VoiceProvider {
   if (GROQ) return (geminiVoice ??= new GroqVoice(process.env.GROQ_API_KEY ?? ''));
   if (MOCK) return (geminiVoice ??= new MockVoice({ playable: true }));
-  const key = GEMINI_API_KEY.value();
+  const key = geminiKey();
   if (!key) throw new CoachError('not-configured');
   return (geminiVoice ??= new GeminiVoice(key));
 }

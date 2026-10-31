@@ -37,7 +37,7 @@ import { voiceOption } from '@/features/voice/voices';
 import { useUsageStore } from '@/stores/usageStore';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useUserDataStore } from '@/stores/userDataStore';
-import { theme } from '@/ui';
+import { haptic, theme } from '@/ui';
 
 type CallState = 'idle' | 'listening' | 'processing' | 'speaking';
 
@@ -382,6 +382,7 @@ export default function VoiceCallScreen() {
   };
 
   const onOrbPress = () => {
+    if (callState !== 'processing') haptic.tap();
     if (callState === 'idle') void startRecording();
     else if (callState === 'listening') void stopRecording();
     else if (callState === 'speaking') interrupt();

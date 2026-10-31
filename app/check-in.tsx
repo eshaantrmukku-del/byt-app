@@ -23,7 +23,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useUserDataStore } from '@/stores/userDataStore';
 import type { MoodId } from '@/types/models';
-import { theme } from '@/ui';
+import { FadeIn, haptic, PressScale, stagger, theme } from '@/ui';
 
 const ACCENT = '#2563EB';
 
@@ -59,6 +59,7 @@ export default function CheckInScreen() {
     setSubmitting(true);
     try {
       await saveCheckIn(uid, today, { moods, ...metrics, reflection, win }, !!existing);
+      haptic.success();
       router.back();
     } catch (e) {
       Alert.alert('Could not save', friendlyError(e, 'Check your connection and try again.'));
@@ -84,19 +85,23 @@ export default function CheckInScreen() {
             <View style={styles.headerSpacer} />
           </View>
 
-          <Text style={styles.title}>How are you feeling, {firstName}?</Text>
-          <Text style={styles.subtitle}>Take a moment to ground yourself.</Text>
+          <FadeIn>
+            <Text style={styles.title}>How are you feeling, {firstName}?</Text>
+            <Text style={styles.subtitle}>Take a moment to ground yourself.</Text>
+          </FadeIn>
 
-          <View style={styles.section}>
+          <FadeIn delay={stagger(1)} style={styles.section}>
             <Text style={styles.sectionLabel}>Select your mood</Text>
             <View style={styles.moodGrid}>
               {MOODS.map((mood) => {
                 const selected = moods.includes(mood.id);
                 return (
-                  <TouchableOpacity
+                  <PressScale
                     key={mood.id}
+                    scaleTo={0.93}
                     style={[styles.moodChip, selected && styles.moodChipSelected]}
                     onPress={() => {
+                      haptic.select();
                       setTouched(true);
                       setMoods((m) => toggleMood(m, mood.id));
                     }}
@@ -107,13 +112,13 @@ export default function CheckInScreen() {
                     <Text style={[styles.moodText, { color: selected ? '#FFF' : theme.text }]}>
                       {mood.icon} {mood.label}
                     </Text>
-                  </TouchableOpacity>
+                  </PressScale>
                 );
               })}
             </View>
-          </View>
+          </FadeIn>
 
-          <View style={styles.section}>
+          <FadeIn delay={stagger(2)} style={styles.section}>
             <Text style={styles.sectionLabel}>Metrics</Text>
             {METRICS.map((metric) => (
               <View key={metric.key} style={styles.metricCard}>
@@ -142,9 +147,9 @@ export default function CheckInScreen() {
                 </View>
               </View>
             ))}
-          </View>
+          </FadeIn>
 
-          <View style={styles.section}>
+          <FadeIn delay={stagger(3)} style={styles.section}>
             <Text style={styles.sectionLabel}>Reflect</Text>
             <Text style={styles.inputLabel}>What&apos;s on your mind today?</Text>
             <TextInput
@@ -174,9 +179,9 @@ export default function CheckInScreen() {
               }}
               maxLength={WIN_LIMIT}
             />
-          </View>
+          </FadeIn>
 
-          <TouchableOpacity
+          <PressScale
             style={[styles.submitButton, submitting && styles.busy]}
             onPress={() => void handleSubmit()}
             disabled={submitting}
@@ -184,7 +189,7 @@ export default function CheckInScreen() {
             accessibilityLabel="Submit Check-In"
           >
             {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Submit Check-In</Text>}
-          </TouchableOpacity>
+          </PressScale>
 
           <TouchableOpacity style={styles.skipButton} onPress={() => router.back()} accessibilityRole="button">
             <Text style={styles.skipButtonText}>Skip for now</Text>

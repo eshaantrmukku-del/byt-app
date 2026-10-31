@@ -10,7 +10,9 @@ import {
   Menu,
   MessageSquare,
   Sparkles,
+  Target,
   TrendingUp,
+  Trophy,
   X,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -37,10 +39,25 @@ import { currentAccount, percentLeft } from '@/features/usage/usage';
 import { useUsageStore } from '@/stores/usageStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { useUserDataStore } from '@/stores/userDataStore';
-import { shadows, theme } from '@/ui';
+import { AnimatedBar, FadeIn, PressScale, shadows, stagger, theme } from '@/ui';
 
 const MENU_WIDTH = Dimensions.get('window').width * 0.82;
 const USE_NATIVE = Platform.OS !== 'web';
+
+function StatCard(props: { icon: LucideIcon; tint: string; label: string; value: string | number; delay: number }) {
+  const { icon: Icon, tint, label, value, delay } = props;
+  return (
+    <FadeIn delay={delay} style={styles.statCard}>
+      <View style={styles.statTop}>
+        <Text style={styles.statLabel}>{label}</Text>
+        <View style={[styles.statIcon, { backgroundColor: `${tint}22` }]}>
+          <Icon size={15} color={tint} />
+        </View>
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+    </FadeIn>
+  );
+}
 
 function greetingFor(hour: number) {
   if (hour < 12) return 'Good morning';
@@ -170,80 +187,71 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <LinearGradient colors={['#22D3EE', '#3B82F6', '#2563EB']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.welcomeCard}>
-          <Text style={styles.welcomeSub}>{greetingFor(new Date().getHours())},</Text>
-          <Text style={styles.welcomeTitle}>{firstName}</Text>
-          <Text style={styles.welcomeBody}>
-            {streak > 0
-              ? `You're on a ${streak}-day streak. Your momentum is building — ready to focus today?`
-              : 'A small step today builds the momentum for tomorrow. Where do you want to start?'}
-          </Text>
-        </LinearGradient>
+        <FadeIn>
+          <LinearGradient colors={['#22D3EE', '#3B82F6', '#2563EB']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.welcomeCard}>
+            <View pointerEvents="none" style={[styles.welcomeOrb, styles.welcomeOrbLarge]} />
+            <View pointerEvents="none" style={[styles.welcomeOrb, styles.welcomeOrbSmall]} />
+            <Text style={styles.welcomeSub}>{greetingFor(new Date().getHours())},</Text>
+            <Text style={styles.welcomeTitle}>{firstName}</Text>
+            <Text style={styles.welcomeBody}>
+              {streak > 0
+                ? `You're on a ${streak}-day streak. Your momentum is building — ready to focus today?`
+                : 'A small step today builds the momentum for tomorrow. Where do you want to start?'}
+            </Text>
+          </LinearGradient>
+        </FadeIn>
 
         <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>ACTIVE GOALS</Text>
-            <Text style={styles.statValue}>{activeGoals.length}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>AVG PROGRESS</Text>
-            <Text style={styles.statValue}>{avgProgress}%</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>DAY STREAK</Text>
-            <View style={styles.streakRow}>
-              <Text style={styles.statValue}>{streak}</Text>
-              <Flame size={20} color="#F97316" fill="#F97316" style={styles.flame} />
-            </View>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>COMPLETED</Text>
-            <Text style={styles.statValue}>{completed}</Text>
-          </View>
+          <StatCard icon={Target} tint="#60A5FA" label="ACTIVE GOALS" value={activeGoals.length} delay={stagger(1)} />
+          <StatCard icon={TrendingUp} tint="#22D3EE" label="AVG PROGRESS" value={`${avgProgress}%`} delay={stagger(2)} />
+          <StatCard icon={Flame} tint="#F97316" label="DAY STREAK" value={streak} delay={stagger(3)} />
+          <StatCard icon={Trophy} tint="#FBBF24" label="COMPLETED" value={completed} delay={stagger(4)} />
         </View>
 
-        <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/check-in')} accessibilityRole="button">
-            <Sparkles size={20} color={theme.primary} />
-            <Text style={styles.actionText}>Reflect Now</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/goals')} accessibilityRole="button">
-            <CheckCircle size={20} color={theme.primary} />
-            <Text style={styles.actionText}>Set Goal</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/ai-coach')} accessibilityRole="button">
-            <MessageSquare size={20} color={theme.primary} />
-            <Text style={styles.actionText}>Chat with AI</Text>
-          </TouchableOpacity>
-        </ScrollView>
+        <FadeIn delay={stagger(5)}>
+          <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsContainer}>
+            <PressScale style={styles.actionButton} onPress={() => router.push('/check-in')} accessibilityRole="button" accessibilityLabel="Reflect now">
+              <Sparkles size={18} color="#FBBF24" />
+              <Text style={styles.actionText}>Reflect now</Text>
+            </PressScale>
+            <PressScale style={styles.actionButton} onPress={() => router.push('/ai-coach')} accessibilityRole="button" accessibilityLabel="Talk to your coach">
+              <MessageSquare size={18} color={theme.primary} />
+              <Text style={styles.actionText}>Talk to your coach</Text>
+            </PressScale>
+            <PressScale style={styles.actionButton} onPress={() => router.push('/goals')} accessibilityRole="button" accessibilityLabel="Set a goal">
+              <CheckCircle size={18} color="#22D3EE" />
+              <Text style={styles.actionText}>Set a goal</Text>
+            </PressScale>
+          </ScrollView>
+        </FadeIn>
 
-        <View style={styles.sectionHeader}>
+        <FadeIn delay={stagger(6)} style={styles.sectionHeader}>
           <Text style={styles.sectionTitleBig}>Active Goals</Text>
           <TouchableOpacity onPress={() => router.push('/goals')} accessibilityRole="button">
-            <Text style={styles.seeAll}>See All</Text>
+            <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
-        </View>
+        </FadeIn>
 
         {homeGoals.length === 0 ? (
-          <View style={[styles.card, styles.emptyCard]}>
+          <FadeIn delay={stagger(7)} style={[styles.card, styles.emptyCard]}>
             <Text style={styles.emptyText}>No active goals yet.</Text>
             <TouchableOpacity onPress={() => router.push('/goals')} accessibilityRole="button">
               <Text style={styles.emptyLink}>Create one now</Text>
             </TouchableOpacity>
-          </View>
+          </FadeIn>
         ) : (
-          homeGoals.map((goal) => (
-            <View key={goal.id} style={styles.card}>
-              <View style={styles.goalHeader}>
-                <Text style={styles.goalTitle}>{goal.title}</Text>
-                <Text style={styles.goalPercent}>{goal.progress}%</Text>
-              </View>
-              <Text style={styles.goalSubtitle}>{CATEGORY_LABELS[goal.category]}</Text>
-              <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${goal.progress}%` }]} />
-              </View>
-            </View>
+          homeGoals.map((goal, i) => (
+            <FadeIn key={goal.id} delay={stagger(7 + i)}>
+              <PressScale style={styles.card} onPress={() => router.push('/goals')} accessibilityRole="button" accessibilityLabel={`${goal.title}, ${goal.progress}%`}>
+                <View style={styles.goalHeader}>
+                  <Text style={styles.goalTitle}>{goal.title}</Text>
+                  <Text style={styles.goalPercent}>{goal.progress}%</Text>
+                </View>
+                <Text style={styles.goalSubtitle}>{CATEGORY_LABELS[goal.category]}</Text>
+                <AnimatedBar percent={goal.progress} color={theme.primary} track={theme.surface} delay={300 + i * 80} />
+              </PressScale>
+            </FadeIn>
           ))
         )}
 
@@ -267,7 +275,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  welcomeCard: { padding: 24, borderRadius: 24, marginBottom: 24, ...shadows.glow },
+  welcomeCard: { padding: 24, borderRadius: 24, marginBottom: 24, overflow: 'hidden', ...shadows.glow },
+  welcomeOrb: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.1)' },
+  welcomeOrbLarge: { width: 180, height: 180, top: -70, right: -50 },
+  welcomeOrbSmall: { width: 90, height: 90, bottom: -40, right: 70, backgroundColor: 'rgba(255,255,255,0.07)' },
   welcomeSub: { color: 'rgba(255,255,255,0.85)', fontSize: 14, marginBottom: 4, fontWeight: '600', letterSpacing: 0.2 },
   welcomeTitle: { color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: 12, letterSpacing: -0.5 },
   welcomeBody: { color: 'rgba(255,255,255,0.9)', fontSize: 16, lineHeight: 24 },
@@ -282,10 +293,10 @@ const styles = StyleSheet.create({
     ...shadows.card,
     marginBottom: 12,
   },
-  statLabel: { fontSize: 12, color: theme.textMuted, fontWeight: '600', marginBottom: 8, letterSpacing: 0.5 },
-  statValue: { fontSize: 24, fontWeight: '700', color: theme.text },
-  streakRow: { flexDirection: 'row', alignItems: 'center' },
-  flame: { marginLeft: 6, marginTop: 4 },
+  statTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  statIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  statLabel: { fontSize: 11, color: theme.textMuted, fontWeight: '700', letterSpacing: 0.6 },
+  statValue: { fontSize: 26, fontWeight: '800', color: theme.text, letterSpacing: -0.5 },
   sectionTitle: { fontSize: 13, fontWeight: '600', color: '#64748B', marginBottom: 12, letterSpacing: 0.5, textTransform: 'uppercase' },
   actionsScroll: { marginBottom: 24, marginHorizontal: -24 },
   actionsContainer: { paddingHorizontal: 24, gap: 12 },
@@ -320,8 +331,6 @@ const styles = StyleSheet.create({
   goalTitle: { fontSize: 16, fontWeight: '600', color: theme.text, flex: 1, marginRight: 8 },
   goalPercent: { fontSize: 14, fontWeight: '700', color: theme.primary },
   goalSubtitle: { fontSize: 13, color: '#64748B', marginBottom: 12 },
-  progressBarBg: { height: 8, backgroundColor: theme.surface, borderRadius: 4, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: theme.primary, borderRadius: 4 },
   bottomSpace: { height: 100 },
   menuOverlay: { flex: 1, flexDirection: 'row' },
   menuBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.5)' },

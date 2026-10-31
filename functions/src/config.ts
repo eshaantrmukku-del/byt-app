@@ -63,6 +63,16 @@ export const MODELS = {
   summary: process.env.BYT_SUMMARY_MODEL || 'gemini-3.5-flash-lite',
 } as const;
 
+/**
+ * When Google turns a model away ("high demand", or a rate limit), the retry goes to an
+ * older model of the same family instead, so the reply still arrives.
+ */
+export const FALLBACK_MODELS: Readonly<Record<string, string>> = {
+  'gemini-3.8-flash': process.env.BYT_REPLY_FALLBACK_MODEL || 'gemini-3.5-flash',
+  'gemini-3.5-flash': 'gemini-3.5-flash-lite',
+  'gemini-3.5-flash-lite': process.env.BYT_ANALYSIS_FALLBACK_MODEL || 'gemini-3.1-flash-lite',
+};
+
 /** Gemini voice (same key as the coach). Overridable through functions/.env. */
 export const VOICE = {
   sttModel: process.env.BYT_STT_MODEL || 'gemini-3.5-transcribe',
